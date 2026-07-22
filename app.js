@@ -1,6 +1,6 @@
 const APP_NAME = "The Weimar Republic Companion";
-const APP_BUILD = "phase-3-guided-sequence";
-const LOCAL_SAVE_KEY = "wr-companion-state-v3";
+const APP_BUILD = "phase-4-faction-actions";
+const LOCAL_SAVE_KEY = "wr-companion-state-v4";
 
 const sources = [
   {
@@ -263,6 +263,638 @@ const generalElectionOutcomes = [
   }
 ];
 
+const globalActionLimits = [
+  "Do not exceed a space's Population Number with Influence.",
+  "A faction may not both place and remove Influence in the same space during the same Action Step.",
+  "Influence cannot be placed in a space with an Assassinations marker matching that faction's color.",
+  "If two Assault Actions are performed, each must target a different space.",
+  "Election and Mandatory cards may never be discarded.",
+  "In-play Lingering Events may alter or block Actions."
+];
+
+const actionStateQuestions = {
+  general_strike_clear: "General Strike marker is not on the Timeline",
+  coalition_influence_allowed: "Economy allows Coalition Influence placement",
+  unity_sound_strong: "Coalition Unity is Sound or Strong",
+  yellow_leverage_above_progress: "Yellow Leverage is above current Progress",
+  black_leverage_above_reaction: "Black Leverage is above current Reaction",
+  reaction_can_advance: "Reaction is not already more than one above Progress",
+  coalition_mcs_available: "Coalition has / can move a Middle Class Sympathies pawn",
+  strike_available: "There is an eligible Strike marker",
+  kpd_cadre_available: "KPD has an available Cadre",
+  nsdap_cadre_available: "NSDAP has an available Cadre",
+  conservative_clique_available: "RC has an available Conservative Clique",
+  assassination_available: "An Assassinations marker is available",
+  leverage_available: "A matching Leverage marker is available",
+  unit_available: "A matching unit is available",
+  sudden_victory_marker_available: "The faction's Sudden Victory marker is available"
+};
+
+const commonActions = {
+  assault: {
+    id: "assault",
+    title: "Assault",
+    citation: "6.2",
+    summary: "Fight in one space where the active faction has units and an opposing unit, Strike, or Uprising is present.",
+    requires: [
+      "Active faction units in the target space.",
+      "At least one opposing faction unit, Strike, or Uprising in the target space.",
+      "If this is a second Assault this Action Step, choose a different space."
+    ],
+    procedure: [
+      "Pick one opposing faction as the target.",
+      "Ask whether any faction will loan units before combat, attacker first.",
+      "If Coalition and RC units oppose each other, perform Coalition Loyalty Checks.",
+      "Calculate each side's unit SV plus modifiers, then subtract one die roll.",
+      "Apply hits: units first, then Strike/Uprising if KPD participated, then Influence.",
+      "Highest modified strength minus die roll becomes Momentum."
+    ],
+    warnings: [
+      "Coalition Reichswehr and Freikorps may be affected by Loyalty Checks against RC units.",
+      "KPD/NSDAP defender shifts Stance one box toward Revolutionary after the Assault."
+    ]
+  }
+};
+
+const factionActions = {
+  coalition: [
+    {
+      id: "advance_progress",
+      title: "Advance Progress Track",
+      citation: "6.3",
+      summary: "Increase Progress by one box.",
+      context: ["yellow_leverage_above_progress"],
+      requires: ["Yellow Leverage must be in the box above the current Progress level."]
+    },
+    commonActions.assault,
+    {
+      id: "gain_momentum",
+      title: "Gain Momentum",
+      citation: "6.3",
+      summary: "Coalition becomes the Momentum faction.",
+      requires: ["No map requirement."]
+    },
+    {
+      id: "increase_deals",
+      title: "Increase Deals Track",
+      citation: "6.3",
+      summary: "Shift either the U.S. Deals or U.S.S.R. Deals track one box to the right.",
+      requires: ["Choose U.S. Deals or U.S.S.R. Deals."]
+    },
+    {
+      id: "increase_unity",
+      title: "Increase Unity",
+      citation: "6.3",
+      summary: "Spend a Coalition Middle Class Sympathies pawn to shift Unity one box right.",
+      context: ["coalition_mcs_available"],
+      requires: ["A Middle Class Sympathies pawn must be on the Coalition faction mat.", "An empty Middle Class Sympathies holding box is needed."]
+    },
+    {
+      id: "move_mcs",
+      title: "Move Middle Class Sympathies",
+      citation: "6.3",
+      summary: "Move one Available pawn to the Coalition mat, or return one pawn from any faction mat.",
+      requires: ["Either an Available Middle Class Sympathies pawn or a pawn on a faction mat."]
+    },
+    {
+      id: "move_units",
+      title: "Move Units",
+      citation: "6.3",
+      summary: "Move up to three Coalition Freikorps and/or Reichswehr units.",
+      requires: ["Each unit moves independently into adjacent spaces.", "Move up to three spaces, or only one if its origin has a Strike/Uprising or General Strike is active."]
+    },
+    {
+      id: "place_influence",
+      title: "Place Influence",
+      citation: "6.3",
+      summary: "Place one Coalition Influence in an eligible space.",
+      context: ["coalition_influence_allowed"],
+      requires: ["Economy must allow Coalition Influence placement.", "Target has no yellow/red Assassinations marker.", "Target is Berlin, adjacent to Berlin, or has/adjacent to Coalition Presence.", "Respect Population and same-turn place/remove limits."]
+    },
+    {
+      id: "place_leverage_map",
+      title: "Place Leverage on Map",
+      citation: "6.3",
+      summary: "Place yellow Leverage in a space with Coalition Presence and clear KPD pressure.",
+      context: ["general_strike_clear", "leverage_available"],
+      requires: ["General Strike marker is not on the Timeline.", "An Available yellow Leverage marker.", "Target space has Coalition Presence."],
+      procedure: ["Place yellow Leverage.", "Remove any Strike and/or KPD Cadre from that space."]
+    },
+    {
+      id: "place_leverage_track",
+      title: "Place Leverage on Track",
+      citation: "6.3",
+      summary: "Place yellow Leverage on the Progress or Economy track.",
+      context: ["leverage_available"],
+      requires: ["An Available yellow Leverage marker.", "If using Economy, do not place on a side already containing black Leverage.", "Adjust Economy if appropriate."]
+    },
+    {
+      id: "place_reform",
+      title: "Place Reform",
+      citation: "6.3",
+      summary: "Place one Coalition Reform in a controlled clean space.",
+      context: ["unity_sound_strong"],
+      requires: ["Unity must be Sound or Strong.", "An Available Reform marker.", "Target has Coalition Parliamentary Control.", "Target has no Strike, Uprising, black Leverage, Assassinations, or Reform already present."]
+    },
+    {
+      id: "place_sudden_victory",
+      title: "Place Sudden Victory Marker",
+      citation: "6.3",
+      summary: "Place the Coalition Reformation marker on the Timeline in the current year.",
+      context: ["sudden_victory_marker_available"],
+      requires: ["Coalition Reformation marker must be Available.", "Victory is checked later during the Sudden Victory Step."]
+    },
+    {
+      id: "place_unit",
+      title: "Place Unit",
+      citation: "6.3",
+      summary: "Place one Coalition Freikorps or Reichswehr unit.",
+      context: ["unit_available"],
+      requires: ["An Available Coalition unit.", "Target space has Coalition Parliamentary Control or Coalition Dominance."]
+    },
+    {
+      id: "remove_influence",
+      title: "Remove Influence",
+      citation: "6.3",
+      summary: "Remove one opposing Influence cube near Coalition Presence.",
+      requires: ["Target has no yellow/red Assassinations marker.", "Target has or is adjacent to Coalition Presence.", "Do not target a faction with Supremacy in that space.", "Respect same-turn place/remove limits."]
+    },
+    {
+      id: "remove_leverage",
+      title: "Remove Leverage",
+      citation: "6.3",
+      summary: "Remove any one yellow or black Leverage marker from the map or a track.",
+      requires: ["A Leverage marker exists on the map or any track."]
+    }
+  ],
+  kpd: [
+    commonActions.assault,
+    {
+      id: "change_stance",
+      title: "Change Stance",
+      citation: "6.4",
+      summary: "Shift KPD Stance one box in either direction.",
+      requires: ["KPD Stance track is in use for the scenario."]
+    },
+    {
+      id: "flip_strike",
+      title: "Flip Strike to Uprising",
+      citation: "6.4",
+      summary: "Flip any one Strike marker on the map to its Uprising side.",
+      context: ["strike_available"],
+      requires: ["A Strike marker exists on the map."]
+    },
+    {
+      id: "gain_momentum",
+      title: "Gain Momentum",
+      citation: "6.4",
+      summary: "KPD becomes the Momentum faction.",
+      requires: ["No map requirement."]
+    },
+    {
+      id: "move_mcs",
+      title: "Move Middle Class Sympathies",
+      citation: "6.4",
+      summary: "Move one Available pawn to the KPD mat, or return one pawn from any faction mat.",
+      requires: ["Either an Available Middle Class Sympathies pawn or a pawn on a faction mat."]
+    },
+    {
+      id: "move_units",
+      title: "Move Units",
+      citation: "6.4",
+      summary: "Move up to three KPD Worker Militia units.",
+      requires: ["Each unit moves independently into adjacent spaces.", "Move up to three spaces, or only one if its origin has a Strike/Uprising or General Strike is active."],
+      warnings: ["If a Worker Militia ends with NSDAP SA, KPD must immediately conduct a free Assault against NSDAP."]
+    },
+    {
+      id: "place_cadre",
+      title: "Place Cadre",
+      citation: "6.4",
+      summary: "Place one KPD Cadre.",
+      context: ["kpd_cadre_available"],
+      requires: ["An Available KPD Cadre.", "Target has KPD Dominance or Parliamentary Control.", "Target does not already contain any Cadre."]
+    },
+    {
+      id: "place_influence",
+      title: "Place Influence",
+      citation: "6.4",
+      summary: "Place KPD Influence up to the Economy track amount.",
+      requires: ["Target has no yellow/red Assassinations marker.", "Target is Berlin/adjacent, has or is adjacent to KPD Presence, or has a KPD Cadre.", "Respect Population and same-turn place/remove limits."]
+    },
+    {
+      id: "place_strike",
+      title: "Place Strike",
+      citation: "6.4",
+      summary: "Place one Strike and remove Leverage from that space.",
+      context: ["strike_available"],
+      requires: ["An Available Strike marker.", "Target has KPD Dominance and/or KPD Parliamentary Control.", "Target has no Strike or Uprising marker."],
+      procedure: ["Return any Leverage from the selected space.", "If this creates at least three total Strikes plus Uprisings, place General Strike on the Timeline.", "When General Strike is placed, remove one Coalition Reform if any and remove all map/Economy-track Leverage."]
+    },
+    {
+      id: "place_sudden_victory",
+      title: "Place Sudden Victory Marker",
+      citation: "6.4",
+      summary: "Place the KPD Revolution marker on the Timeline in the current year.",
+      context: ["sudden_victory_marker_available"],
+      requires: ["KPD Revolution marker must be Available.", "Victory is checked later during the Sudden Victory Step."]
+    },
+    {
+      id: "place_unit",
+      title: "Place Unit",
+      citation: "6.4",
+      summary: "Place one Worker Militia unit.",
+      context: ["unit_available"],
+      requires: ["An Available Worker Militia.", "Target has KPD Dominance, KPD Parliamentary Control, or a KPD Cadre."],
+      warnings: ["If placed with NSDAP SA, KPD must immediately conduct a free Assault against NSDAP."]
+    },
+    {
+      id: "remove_influence",
+      title: "Remove Influence",
+      citation: "6.4",
+      summary: "Remove opposing Influence up to the Economy track amount.",
+      requires: ["Target has no yellow/red Assassinations marker.", "Target has or is adjacent to KPD Presence and/or has a KPD Cadre.", "Multiple factions may be targeted.", "Do not target a faction with Supremacy in that space.", "Respect same-turn place/remove limits."]
+    }
+  ],
+  nsdap: [
+    commonActions.assault,
+    {
+      id: "change_stance",
+      title: "Change Stance",
+      citation: "6.5",
+      summary: "Shift NSDAP Stance one box in either direction.",
+      requires: ["NSDAP Stance track is in use for the scenario."]
+    },
+    {
+      id: "gain_momentum",
+      title: "Gain Momentum",
+      citation: "6.5",
+      summary: "NSDAP becomes the Momentum faction.",
+      requires: ["No map requirement."]
+    },
+    {
+      id: "move_mcs",
+      title: "Move Middle Class Sympathies",
+      citation: "6.5",
+      summary: "For each NSDAP Cadre on the map, move or return one Middle Class Sympathies pawn.",
+      requires: ["At least one NSDAP Cadre on the map for this to have effect."],
+      procedure: ["For each Cadre, choose one: move an Available pawn to NSDAP, move one from RC mat to NSDAP, or return one from any faction mat."]
+    },
+    {
+      id: "move_units",
+      title: "Move Units",
+      citation: "6.5",
+      summary: "Move up to three NSDAP SA units.",
+      requires: ["Each unit moves independently into adjacent spaces.", "Move up to three spaces, or only one if its origin has a Strike/Uprising or General Strike is active."],
+      warnings: ["If an SA ends with KPD Worker Militia, NSDAP must immediately conduct a free Assault against KPD."]
+    },
+    {
+      id: "place_assassinations",
+      title: "Place Assassinations",
+      citation: "6.5",
+      summary: "Target Coalition/KPD or RC with an Assassinations marker and remove Influence or a key piece.",
+      context: ["assassination_available"],
+      requires: ["An Available Assassinations marker.", "If targeting Coalition/KPD, target a space with Coalition and/or KPD Presence.", "If targeting RC, target a space with RC Presence."],
+      procedure: ["Yellow/red side removes up to two total Coalition/KPD Influence, or one Coalition Reform, or one KPD Cadre.", "Brown/black side removes up to two RC Influence.", "If two or more Conservative Cliques are on the map and another marker is available, also target a vulnerable Conservative Clique."]
+    },
+    {
+      id: "place_cadre",
+      title: "Place Cadre",
+      citation: "6.5",
+      summary: "Place one NSDAP Cadre.",
+      context: ["nsdap_cadre_available"],
+      requires: ["An Available NSDAP Cadre.", "Target has NSDAP Dominance or Parliamentary Control.", "Target does not already contain any Cadre."]
+    },
+    {
+      id: "place_influence",
+      title: "Place Influence",
+      citation: "6.5",
+      summary: "Place NSDAP Influence up to the Economy track amount.",
+      requires: ["Target has no brown/black Assassinations marker.", "Target is Muenchen/Bayern, has or is adjacent to NSDAP Presence, has an NSDAP Cadre, or has RC Dominance.", "Respect Population and same-turn place/remove limits."]
+    },
+    {
+      id: "place_sudden_victory",
+      title: "Place Sudden Victory Marker",
+      citation: "6.5",
+      summary: "Place the NSDAP Brown Putsch marker on the Timeline in the current year.",
+      context: ["sudden_victory_marker_available"],
+      requires: ["NSDAP Putsch marker must be Available.", "Victory is checked later during the Sudden Victory Step."]
+    },
+    {
+      id: "place_unit",
+      title: "Place Unit",
+      citation: "6.5",
+      summary: "Place one SA unit.",
+      context: ["unit_available"],
+      requires: ["An Available SA unit.", "Target has NSDAP Parliamentary Control, NSDAP Dominance, or an NSDAP Cadre."],
+      warnings: ["If placed with KPD Worker Militia, NSDAP must immediately conduct a free Assault against KPD."]
+    },
+    {
+      id: "remove_influence",
+      title: "Remove Influence",
+      citation: "6.5",
+      summary: "Remove opposing Influence up to the Economy track amount.",
+      requires: ["Target has no brown/black Assassinations marker.", "Target has or is adjacent to NSDAP Presence and/or has an NSDAP Cadre.", "Multiple factions may be targeted.", "Do not target a faction with Supremacy in that space.", "Respect same-turn place/remove limits."]
+    }
+  ],
+  radical_conservatives: [
+    {
+      id: "advance_reaction",
+      title: "Advance Reaction Track",
+      citation: "6.6",
+      summary: "Increase Reaction by one box.",
+      context: ["black_leverage_above_reaction", "reaction_can_advance"],
+      requires: ["Black Leverage must be in the box above current Reaction.", "Reaction can never exceed Progress by more than one box."]
+    },
+    commonActions.assault,
+    {
+      id: "gain_momentum",
+      title: "Gain Momentum",
+      citation: "6.6",
+      summary: "RC becomes the Momentum faction.",
+      requires: ["No map requirement."]
+    },
+    {
+      id: "move_mcs",
+      title: "Move Middle Class Sympathies",
+      citation: "6.6",
+      summary: "Move one Available pawn to the RC mat, or return one pawn from any faction mat.",
+      requires: ["Either an Available Middle Class Sympathies pawn or a pawn on a faction mat."]
+    },
+    {
+      id: "move_units",
+      title: "Move Units",
+      citation: "6.6",
+      summary: "Move up to three RC Rogue Freikorps units.",
+      requires: ["Each unit moves independently into adjacent spaces.", "Move up to three spaces, or only one if its origin has a Strike/Uprising or General Strike is active."]
+    },
+    {
+      id: "place_assassinations",
+      title: "Place Assassinations",
+      citation: "6.6",
+      summary: "Target Coalition/KPD or NSDAP with an Assassinations marker.",
+      context: ["assassination_available"],
+      requires: ["An Available Assassinations marker.", "If targeting Coalition/KPD, target a space with Coalition and/or KPD Presence.", "If targeting NSDAP, target a space with NSDAP Presence."],
+      procedure: ["Yellow/red side removes up to two Coalition/KPD Influence, or one Coalition Reform, or one KPD Cadre.", "Brown/black side removes up to two NSDAP Influence or one NSDAP Cadre."]
+    },
+    {
+      id: "place_clique",
+      title: "Place Conservative Clique",
+      citation: "6.6",
+      summary: "Place one Conservative Clique in a right-wing stronghold.",
+      context: ["conservative_clique_available"],
+      requires: ["An Available Conservative Clique.", "Target has RC Dominance.", "Target has no brown/black Assassinations marker."]
+    },
+    {
+      id: "place_influence",
+      title: "Place Influence",
+      citation: "6.6",
+      summary: "Place RC Influence up to the Reaction track amount.",
+      requires: ["Target has no brown/black Assassinations marker.", "Target is Berlin/adjacent or within RC Middle Class Sympathies range of a Conservative Clique, minimum range 1.", "Respect Population and same-turn place/remove limits."]
+    },
+    {
+      id: "place_leverage_map",
+      title: "Place Leverage on Map",
+      citation: "6.6",
+      summary: "Place black Leverage in a space with RC Presence and clear rival pressure.",
+      context: ["general_strike_clear", "leverage_available"],
+      requires: ["General Strike marker is not on the Timeline.", "An Available black Leverage marker.", "Target space has RC Presence."],
+      procedure: ["Place black Leverage.", "Remove any Assassinations marker or NSDAP Cadre from that space."]
+    },
+    {
+      id: "place_leverage_track",
+      title: "Place Leverage on Track",
+      citation: "6.6",
+      summary: "Place black Leverage on the Reaction or Economy track.",
+      context: ["leverage_available"],
+      requires: ["An Available black Leverage marker.", "Adjust Economy if appropriate."]
+    },
+    {
+      id: "place_sudden_victory",
+      title: "Place Sudden Victory Marker",
+      citation: "6.6",
+      summary: "Place the RC Black Putsch marker on the Timeline in the current year.",
+      context: ["sudden_victory_marker_available"],
+      requires: ["RC Putsch marker must be Available.", "Victory is checked later during the Sudden Victory Step."]
+    },
+    {
+      id: "place_unit",
+      title: "Place Unit",
+      citation: "6.6",
+      summary: "Place one Rogue Freikorps unit.",
+      context: ["unit_available"],
+      requires: ["An Available Rogue Freikorps unit.", "Target has RC Parliamentary Control or RC Dominance."]
+    },
+    {
+      id: "remove_influence",
+      title: "Remove Influence",
+      citation: "6.6",
+      summary: "Remove opposing Influence up to the Reaction track amount.",
+      requires: ["Target is within Conservative Clique range equal to RC Middle Class Sympathies pawns, minimum 1.", "Target has no brown/black Assassinations marker.", "Multiple factions may be targeted.", "Do not target a faction with Supremacy in that space.", "Respect same-turn place/remove limits."]
+    },
+    {
+      id: "remove_leverage",
+      title: "Remove Leverage",
+      citation: "6.6",
+      summary: "Remove any one yellow or black Leverage marker from the map or a track.",
+      requires: ["A Leverage marker exists on the map or any track."]
+    }
+  ]
+};
+
+const botActionPriorities = {
+  coalition: ["Special Action", "Place Influence", "Remove Influence"],
+  kpd: ["Place Influence", "Special Action", "Remove Influence"],
+  nsdap: ["Place Influence", "Special Action", "Remove Influence"],
+  radical_conservatives: ["Place Conservative Clique", "Place Influence", "Special Action", "Remove Influence"]
+};
+
+const botOptionGuidelines = {
+  coalition: [
+    "Remove opposing units and pieces.",
+    "Place Coalition units and pieces.",
+    "Gain Parliamentary Control.",
+    "Increase Progress.",
+    "Decrease Reaction.",
+    "Shift Unity right.",
+    "Shift Economy toward Stable.",
+    "Move Middle Class Sympathies.",
+    "Place yellow Leverage.",
+    "Remove black Leverage."
+  ],
+  kpd: [
+    "Remove opposing units and pieces.",
+    "Place KPD units and pieces.",
+    "Gain Parliamentary Control.",
+    "Decrease Progress.",
+    "Decrease Reaction.",
+    "Shift Economy toward Mass Unemployment.",
+    "Move Middle Class Sympathies."
+  ],
+  nsdap: [
+    "Remove opposing units and pieces.",
+    "Move Middle Class Sympathies.",
+    "Place NSDAP units and pieces.",
+    "Gain Parliamentary Control.",
+    "Increase Reaction.",
+    "Decrease Progress.",
+    "Shift Economy toward Mass Unemployment."
+  ],
+  radical_conservatives: [
+    "Remove opposing units and pieces.",
+    "Move Middle Class Sympathies.",
+    "Gain Parliamentary Control.",
+    "Place RC units and pieces.",
+    "Increase Reaction.",
+    "Decrease Progress if Reaction is not greater than Progress.",
+    "Shift Economy toward Hyperinflation.",
+    "Place black Leverage.",
+    "Remove yellow Leverage."
+  ]
+};
+
+const botPiecePriority = [
+  "Reform",
+  "Uprising",
+  "Middle Class Sympathies, opposing faction mat first",
+  "Conservative Clique",
+  "Strike",
+  "Assassinations",
+  "Leverage",
+  "Cadre",
+  "Unit, Reichswehr before Freikorps and revealed before unrevealed",
+  "Influence cube"
+];
+
+const botSpacePriority = [
+  "Use Special Action-specific instructions first.",
+  "For Influence placement/removal/replacement: gain active bot Dominance, then remove opposing Dominance.",
+  "For unit placement/removal/replacement: gain active bot Supremacy where opposing units are present, then remove opposing Supremacy, then gain Supremacy in a space without units.",
+  "For unit/piece track choices: faction mat, then Progress/Reaction, Economy, U.S. Deals, U.S.S.R. Deals, then map spaces.",
+  "Otherwise use Impulse Space/Region, closest space, highest PV, highest Population, then random."
+];
+
+const botSpecialTables = {
+  coalition: [
+    {
+      range: "1-2",
+      title: "Reform Actions",
+      actions: [
+        "Place Sudden Victory Marker only in Golden Twenties or Decline if Coalition meets Sudden Victory requirements.",
+        "Place Reform in a space or region without a Reform marker.",
+        "Advance Progress Track.",
+        "Place Leverage on a Track, then Remove Leverage.",
+        "Increase U.S. Deals one box."
+      ]
+    },
+    {
+      range: "3",
+      title: "Political Actions",
+      actions: [
+        "Move Middle Class Sympathies to Coalition mat first if possible, otherwise remove one from an opposing mat.",
+        "Then shift Unity one box right."
+      ]
+    },
+    {
+      range: "4",
+      title: "Military Actions",
+      actions: [
+        "Place Unit, then Assault the first eligible opposing faction where Coalition Potential Assault Strength is greater.",
+        "If that cannot be performed, Increase U.S.S.R. Deals one box."
+      ]
+    },
+    {
+      range: "5-6",
+      title: "Economic Actions",
+      actions: [
+        "If Economy is at least two boxes from Stable or black Economy Leverage exists, remove black Economy Leverage, then place yellow Economy Leverage.",
+        "Place Leverage on the Map, selecting a space with a Strike first.",
+        "Increase U.S. Deals one box."
+      ]
+    }
+  ],
+  kpd: [
+    {
+      range: "1",
+      title: "Military Actions",
+      actions: ["Place Unit, then Assault the first eligible opposing faction where KPD Potential Assault Strength is greater."]
+    },
+    {
+      range: "2",
+      title: "Stance Actions",
+      actions: ["Change Stance: roll a die plus KPD Cadres on map. On 4+, shift toward Revolutionary; otherwise shift toward Democratic."]
+    },
+    {
+      range: "3-4",
+      title: "Strike Actions",
+      actions: ["Flip Strike to Uprising only if General Strike is on the Timeline.", "If that cannot be performed, Place Strike."]
+    },
+    {
+      range: "5",
+      title: "Cadre Actions",
+      actions: ["Place Cadre."]
+    },
+    {
+      range: "6",
+      title: "Political Actions",
+      actions: ["Move Middle Class Sympathies."]
+    }
+  ],
+  nsdap: [
+    {
+      range: "1",
+      title: "Military Actions",
+      actions: ["Place Unit, then Assault the first eligible opposing faction where NSDAP Potential Assault Strength is greater."]
+    },
+    {
+      range: "2",
+      title: "Stance Actions",
+      actions: ["Change Stance: roll a die plus NSDAP Cadres on map. On 4+, shift toward Revolutionary; otherwise shift toward Democratic."]
+    },
+    {
+      range: "3-4",
+      title: "Assassination Actions",
+      actions: ["Place Assassinations only in a space that does not already have an Assassinations marker."]
+    },
+    {
+      range: "5",
+      title: "Cadre Actions",
+      actions: ["Place Cadre."]
+    },
+    {
+      range: "6",
+      title: "Political Actions",
+      actions: ["Move Middle Class Sympathies."]
+    }
+  ],
+  radical_conservatives: [
+    {
+      range: "1",
+      title: "Military Actions",
+      actions: ["Place Unit, or if no RC Freikorps are available, test Coalition Loyalty in spaces with Rogue Freikorps first.", "Then Assault where RC Potential Assault Strength is greater."]
+    },
+    {
+      range: "2",
+      title: "Cultural Leverage Actions",
+      actions: ["Place Leverage on a Track.", "Then remove the highest yellow Leverage from the Progress track."]
+    },
+    {
+      range: "3",
+      title: "Economic Leverage Actions",
+      actions: ["Remove one yellow Leverage from the Economy track.", "Then place black Leverage on the Economy track: Hyperinflation side in Crisis, Mass Unemployment side otherwise."]
+    },
+    {
+      range: "4",
+      title: "Political Actions",
+      actions: ["Move Middle Class Sympathies."]
+    },
+    {
+      range: "5-6",
+      title: "Agitation Actions",
+      actions: ["Advance Reaction Track.", "If that cannot be performed, Place Assassinations in a space without an Assassinations marker."]
+    }
+  ]
+};
+
 const state = {
   screen: "dashboard",
   selectedFaction: "coalition",
@@ -279,6 +911,21 @@ const state = {
     suddenVictory: "",
     generalElectionOutcome: "",
     timelineFlip: ""
+  },
+  actionPlan: ["", ""],
+  selectedActionId: "",
+  actionContext: {},
+  controllers: {
+    coalition: "human",
+    kpd: "bot",
+    nsdap: "bot",
+    radical_conservatives: "bot"
+  },
+  botTurn: {
+    summary: "",
+    factionOrder: "",
+    impulse: "",
+    specialDie: ""
   },
   sequenceChecks: {},
   completedSequence: [],
@@ -335,6 +982,25 @@ function normalizeState() {
     timelineFlip: "",
     ...state.sequenceAnswers
   };
+  if (!Array.isArray(state.actionPlan)) state.actionPlan = ["", ""];
+  state.actionPlan = [state.actionPlan[0] || "", state.actionPlan[1] || ""];
+  if (typeof state.selectedActionId !== "string") state.selectedActionId = "";
+  if (!state.actionContext || typeof state.actionContext !== "object") state.actionContext = {};
+  if (!state.controllers || typeof state.controllers !== "object") state.controllers = {};
+  state.controllers = {
+    coalition: state.controllers.coalition === "bot" ? "bot" : "human",
+    kpd: state.controllers.kpd === "human" ? "human" : "bot",
+    nsdap: state.controllers.nsdap === "human" ? "human" : "bot",
+    radical_conservatives: state.controllers.radical_conservatives === "human" ? "human" : "bot"
+  };
+  if (!state.botTurn || typeof state.botTurn !== "object") state.botTurn = {};
+  state.botTurn = {
+    summary: "",
+    factionOrder: "",
+    impulse: "",
+    specialDie: "",
+    ...state.botTurn
+  };
   if (!state.sequenceChecks || typeof state.sequenceChecks !== "object") state.sequenceChecks = {};
   if (!Array.isArray(state.completedSequence)) state.completedSequence = [];
   if (!Number.isInteger(state.sequenceStepIndex)) state.sequenceStepIndex = 0;
@@ -359,6 +1025,22 @@ function activeFaction() {
 
 function currentSource() {
   return sources.find(source => source.id === state.currentSource) || sources[0];
+}
+
+function currentFactionActions() {
+  return factionActions[state.activeFaction] || factionActions.coalition;
+}
+
+function findAction(actionId) {
+  return currentFactionActions().find(action => action.id === actionId) || null;
+}
+
+function activeController() {
+  return state.controllers[state.activeFaction] || "human";
+}
+
+function isActiveBot() {
+  return activeController() === "bot";
 }
 
 function currentSequencePhase() {
@@ -407,6 +1089,10 @@ function setFaction(factionId) {
 function setActiveFaction(factionId) {
   if (!factions[factionId]) return;
   state.activeFaction = factionId;
+  state.actionPlan = ["", ""];
+  state.selectedActionId = "";
+  state.actionContext = {};
+  state.botTurn = { summary: "", factionOrder: "", impulse: "", specialDie: "" };
   render();
 }
 
@@ -457,11 +1143,53 @@ function setSequenceAnswer(key, value) {
   state.sequenceAnswers[key] = value;
   if (key === "actionChoice" && value === "pass") {
     state.sequenceAnswers.electionPlayed = "no";
+    state.actionPlan = ["", ""];
+    state.selectedActionId = "";
   }
   if (key === "electionPlayed" && value === "no") {
     state.sequenceAnswers.generalElectionOutcome = "";
     clearSequenceChecks("elections:");
   }
+  render();
+}
+
+function setActionContext(key, value) {
+  if (!actionStateQuestions[key]) return;
+  if (value === "unknown") {
+    delete state.actionContext[key];
+  } else {
+    state.actionContext[key] = value === "yes";
+  }
+  render();
+}
+
+function selectAction(actionId) {
+  if (!findAction(actionId)) return;
+  state.selectedActionId = actionId;
+  render();
+}
+
+function setActionSlot(slot, actionId) {
+  const index = Number(slot);
+  if (![0, 1].includes(index)) return;
+  if (actionId && !findAction(actionId)) return;
+  state.actionPlan[index] = actionId;
+  state.selectedActionId = actionId || state.selectedActionId;
+  render();
+}
+
+function setController(factionId, controller) {
+  if (!factions[factionId]) return;
+  state.controllers[factionId] = controller === "bot" ? "bot" : "human";
+  state.actionPlan = ["", ""];
+  state.selectedActionId = "";
+  state.botTurn = { summary: "", factionOrder: "", impulse: "", specialDie: "" };
+  render();
+}
+
+function updateBotTurn(key, value) {
+  if (!["summary", "factionOrder", "impulse", "specialDie"].includes(key)) return;
+  state.botTurn[key] = value;
   render();
 }
 
@@ -477,6 +1205,10 @@ function resetSequenceForNextAction() {
   state.sequenceAnswers.suddenVictory = "";
   state.sequenceAnswers.generalElectionOutcome = "";
   state.sequenceAnswers.timelineFlip = "";
+  state.actionPlan = ["", ""];
+  state.selectedActionId = "";
+  state.actionContext = {};
+  state.botTurn = { summary: "", factionOrder: "", impulse: "", specialDie: "" };
   state.completedSequence = [];
 }
 
@@ -677,6 +1409,21 @@ function resetApp() {
     generalElectionOutcome: "",
     timelineFlip: ""
   };
+  state.actionPlan = ["", ""];
+  state.selectedActionId = "";
+  state.actionContext = {};
+  state.controllers = {
+    coalition: "human",
+    kpd: "bot",
+    nsdap: "bot",
+    radical_conservatives: "bot"
+  };
+  state.botTurn = {
+    summary: "",
+    factionOrder: "",
+    impulse: "",
+    specialDie: ""
+  };
   state.sequenceChecks = {};
   state.completedSequence = [];
   state.notes = "";
@@ -786,6 +1533,11 @@ function reminderListHtml(items) {
   </div>`;
 }
 
+function listHtml(items) {
+  if (!items || !items.length) return "";
+  return `<ul class="rule-list">${items.map(item => `<li>${esc(item)}</li>`).join("")}</ul>`;
+}
+
 function continueButtonHtml(label = "Continue") {
   const disabled = !canContinueSequence();
   return `<button class="btn primary" ${disabled ? "disabled" : "onclick=\"continueSequence()\""}>${esc(label)}</button>`;
@@ -793,7 +1545,15 @@ function continueButtonHtml(label = "Continue") {
 
 function canContinueSequence() {
   const phase = currentSequencePhase();
-  if (phase.id === "action") return !!state.sequenceAnswers.actionChoice;
+  if (phase.id === "action") {
+    if (isActiveBot()) return !!state.botTurn.summary;
+    if (!state.sequenceAnswers.actionChoice) return false;
+    if (state.sequenceAnswers.actionChoice === "pass") return true;
+    return requiredActionSlots().every((_, index) => {
+      const action = findAction(state.actionPlan[index]);
+      return action && actionStatus(action).tone !== "blocked";
+    });
+  }
   if (phase.id === "sudden_victory") return !!state.sequenceAnswers.suddenVictory;
   if (phase.id === "elections_gate") return !!state.sequenceAnswers.electionPlayed;
   if (phase.id === "elections") return !!state.sequenceAnswers.generalElectionOutcome;
@@ -801,8 +1561,288 @@ function canContinueSequence() {
   return true;
 }
 
+function requiredActionSlots() {
+  if (state.sequenceAnswers.actionChoice === "one_action") return [0];
+  if (state.sequenceAnswers.actionChoice === "event_then_actions" || state.sequenceAnswers.actionChoice === "actions_then_event") return [0, 1];
+  return [];
+}
+
+function actionStatus(action) {
+  const contextKeys = action.context || [];
+  const blocked = contextKeys.filter(key => state.actionContext[key] === false);
+  const unknown = contextKeys.filter(key => state.actionContext[key] === undefined);
+  if (blocked.length) return { tone: "blocked", label: "Blocked", blocked, unknown };
+  if (unknown.length) return { tone: "check", label: "Check table", blocked, unknown };
+  return { tone: "ready", label: "Candidate", blocked, unknown };
+}
+
+function actionSlotHtml(index) {
+  const action = findAction(state.actionPlan[index]);
+  const label = action ? action.title : `Choose Action ${index + 1}`;
+  const tone = action ? actionStatus(action).tone : "";
+  return `<button class="action-slot ${tone}" onclick="setActionSlot(${index}, state.selectedActionId || '')">
+    <span class="slot-number">${index + 1}</span>
+    <span>${esc(label)}</span>
+  </button>`;
+}
+
+function actionContextControlsHtml() {
+  const keys = Array.from(new Set(currentFactionActions().flatMap(action => action.context || [])));
+  if (!keys.length) return "";
+  return `<div class="context-grid">
+    ${keys.map(key => {
+      const value = state.actionContext[key];
+      return `<div class="context-item">
+        <div class="context-label">${esc(actionStateQuestions[key])}</div>
+        <div class="segmented">
+          <button class="${value === true ? "selected" : ""}" onclick="setActionContext('${key}', 'yes')">Yes</button>
+          <button class="${value === false ? "selected danger" : ""}" onclick="setActionContext('${key}', 'no')">No</button>
+          <button class="${value === undefined ? "selected muted-choice" : ""}" onclick="setActionContext('${key}', 'unknown')">?</button>
+        </div>
+      </div>`;
+    }).join("")}
+  </div>`;
+}
+
+function actionCardsHtml() {
+  return `<div class="action-card-grid">
+    ${currentFactionActions().map(action => {
+      const selected = state.selectedActionId === action.id;
+      const status = actionStatus(action);
+      return `<button class="action-choice ${selected ? "selected" : ""} ${status.tone}" onclick="selectAction('${action.id}')">
+        <span class="action-choice-head">
+          <span>${esc(action.title)}</span>
+          ${badge(status.label, status.tone)}
+        </span>
+        <span class="option-detail">${esc(action.summary)}</span>
+        <span class="citation">Rule ${esc(action.citation)}</span>
+      </button>`;
+    }).join("")}
+  </div>`;
+}
+
+function selectedActionDetailHtml() {
+  const action = findAction(state.selectedActionId) || currentFactionActions()[0];
+  if (!action) return "";
+  const status = actionStatus(action);
+  const blockedText = status.blocked.map(key => actionStateQuestions[key]);
+  const unknownText = status.unknown.map(key => actionStateQuestions[key]);
+  return `<article class="action-detail ${status.tone}">
+    <div class="row">
+      <div>
+        <div class="kicker">Selected Action</div>
+        <h3>${esc(action.title)}</h3>
+      </div>
+      ${badge("Rule " + action.citation, status.tone)}
+    </div>
+    <p class="muted">${esc(action.summary)}</p>
+    ${blockedText.length ? `<div class="warn-box"><strong>Blocked by your table-state answers:</strong>${listHtml(blockedText)}</div>` : ""}
+    ${unknownText.length ? `<div class="warn-box soft"><strong>Confirm before resolving:</strong>${listHtml(unknownText)}</div>` : ""}
+    <div class="detail-grid">
+      <div>
+        <div class="field-label">Requirements</div>
+        ${listHtml(action.requires)}
+      </div>
+      ${action.procedure ? `<div>
+        <div class="field-label">Procedure</div>
+        ${listHtml(action.procedure)}
+      </div>` : ""}
+      ${action.warnings ? `<div>
+        <div class="field-label">Watch For</div>
+        ${listHtml(action.warnings)}
+      </div>` : ""}
+    </div>
+    <div class="slot-actions">
+      ${requiredActionSlots().map(index => `<button class="mini-btn" onclick="setActionSlot(${index}, '${action.id}')">Use as Action ${index + 1}</button>`).join("")}
+    </div>
+  </article>`;
+}
+
+function actionPlanSummaryHtml() {
+  const slots = requiredActionSlots();
+  if (!slots.length) {
+    return `<div class="info-band"><strong>Pass selected:</strong> no Actions will be performed. You may discard one non-Election, non-Mandatory Event card and draw a replacement.</div>`;
+  }
+  return `<div class="action-slots">
+    ${slots.map(actionSlotHtml).join("")}
+  </div>`;
+}
+
+function actionGuideHtml() {
+  if (!state.sequenceAnswers.actionChoice) {
+    return `<div class="info-band">Choose the faction's turn option first. The app will then ask for the matching one or two Actions.</div>`;
+  }
+  if (state.sequenceAnswers.actionChoice === "pass") {
+    return actionPlanSummaryHtml();
+  }
+  return `
+    <div class="walk-block">
+      <div class="field-label">Planned actions</div>
+      ${actionPlanSummaryHtml()}
+      <p class="small-note">Select an action card, then assign it to Action 1 or Action 2. Repeating an action is allowed unless a global limit blocks the specific target, such as two Assaults in the same space.</p>
+    </div>
+    <div class="walk-block">
+      <div class="field-label">Table-state filters</div>
+      ${actionContextControlsHtml()}
+    </div>
+    <div class="walk-block">
+      <div class="field-label">${esc(activeFaction().short)} action menu</div>
+      ${actionCardsHtml()}
+    </div>
+    ${selectedActionDetailHtml()}
+    <div class="walk-block">
+      <div class="field-label">Global Action limits</div>
+      ${listHtml(globalActionLimits)}
+    </div>
+  `;
+}
+
+function controllerControlsHtml() {
+  return `<div class="controller-grid">
+    ${Object.entries(factions).map(([id, faction]) => {
+      const controller = state.controllers[id] || "human";
+      return `<div class="controller-item">
+        <div class="controller-title">${esc(faction.short)}</div>
+        <div class="segmented">
+          <button class="${controller === "human" ? "selected" : ""}" onclick="setController('${id}', 'human')">Human</button>
+          <button class="${controller === "bot" ? "selected" : ""}" onclick="setController('${id}', 'bot')">Bot</button>
+        </div>
+      </div>`;
+    }).join("")}
+  </div>`;
+}
+
+function botSetSummaryHtml() {
+  const options = [
+    {
+      id: "event_two_actions",
+      label: "Event + 2 Bot Actions",
+      detail: "Reveal the top Event card, perform it, then take two bot Actions."
+    },
+    {
+      id: "one_action",
+      label: "1 Bot Action",
+      detail: "Skip Event play and perform one bot Action."
+    }
+  ];
+  return `<div class="option-grid">
+    ${options.map(option => {
+      const selected = state.botTurn.summary === option.id;
+      return `<button class="option-card ${selected ? "selected" : ""}" onclick="updateBotTurn('summary', '${option.id}')">
+        <span class="option-title">${esc(option.label)}</span>
+        <span class="option-detail">${esc(option.detail)}</span>
+      </button>`;
+    }).join("")}
+  </div>`;
+}
+
+function botSpecialForDie() {
+  const die = Number(state.botTurn.specialDie);
+  if (!Number.isInteger(die) || die < 1 || die > 6) return null;
+  return (botSpecialTables[state.activeFaction] || []).find(row => {
+    if (row.range.includes("-")) {
+      const [low, high] = row.range.split("-").map(Number);
+      return die >= low && die <= high;
+    }
+    return Number(row.range) === die;
+  }) || null;
+}
+
+function botSpecialTableHtml() {
+  const selected = botSpecialForDie();
+  return `<div class="bot-special">
+    <div class="row">
+      <div>
+        <div class="field-label">Special Action die</div>
+        <input class="text-input die-input" value="${esc(state.botTurn.specialDie)}" oninput="updateBotTurn('specialDie', this.value)" placeholder="1-6">
+      </div>
+      ${selected ? badge(selected.range + ": " + selected.title, "check") : badge("Roll if Special", "warn")}
+    </div>
+    ${selected ? `<div class="info-band"><strong>${esc(selected.title)}:</strong>${listHtml(selected.actions)}</div>` : ""}
+    <div class="action-card-grid">
+      ${(botSpecialTables[state.activeFaction] || []).map(row => `<article class="mini-rule">
+        <div class="action-choice-head"><span>${esc(row.range)} ${esc(row.title)}</span></div>
+        ${listHtml(row.actions)}
+      </article>`).join("")}
+    </div>
+  </div>`;
+}
+
+function botRunnerHtml() {
+  const active = activeFaction();
+  const priorities = botActionPriorities[state.activeFaction] || [];
+  const actionCount = state.botTurn.summary === "event_two_actions" ? "two Bot Actions after the Event" : state.botTurn.summary === "one_action" ? "one Bot Action" : "the bot card's listed Action Step Summary";
+  return `
+    <div class="walk-block">
+      <div class="field-label">Solo controllers</div>
+      ${controllerControlsHtml()}
+    </div>
+    <div class="info-band"><strong>${esc(active.short)} is bot-controlled.</strong> Reveal its top bot card, then enter the card cues below.</div>
+    <div class="walk-block">
+      <div class="field-label">Action Step Summary</div>
+      ${botSetSummaryHtml()}
+    </div>
+    <div class="grid2 walk-block">
+      <div>
+        <div class="field-label">Faction Order from bot card</div>
+        <input class="text-input" value="${esc(state.botTurn.factionOrder)}" oninput="updateBotTurn('factionOrder', this.value)" placeholder="e.g. KPD, Coalition, RC">
+      </div>
+      <div>
+        <div class="field-label">Impulse Space / Region</div>
+        <input class="text-input" value="${esc(state.botTurn.impulse)}" oninput="updateBotTurn('impulse', this.value)" placeholder="Space, Region, or RC Clique letter">
+      </div>
+    </div>
+    <div class="walk-block">
+      <div class="field-label">Bot turn script</div>
+      <div class="note-list compact">
+        <div class="note-item">Reveal the top ${esc(active.short)} bot card and use it to perform ${esc(actionCount)}.</div>
+        <div class="note-item">If Event + 2 Bot Actions: reveal the top Event card from the bot stack and resolve it first. In 1923, 1929, or 1933, check unplayed bot Events for Mandatory/Election cards first.</div>
+        <div class="note-item">NP factions do not perform Move Units Actions, never loan units, always accept loaned units, and never spend Middle Class Sympathies during Assaults.</div>
+        <div class="note-item">At the end of the bot turn, apply any Reshuffle Bot Deck instruction on the revealed bot card.</div>
+      </div>
+    </div>
+    <div class="walk-block">
+      <div class="field-label">Bot Action priority</div>
+      <div class="priority-row">${priorities.map((item, index) => `<span><strong>${index + 1}</strong> ${esc(item)}</span>`).join("")}</div>
+      <p class="small-note">For each bot Action, implement the first listed priority that will have some legal effect. For a second bot Action, continue from the next priority instead of restarting at the top.</p>
+    </div>
+    <div class="walk-block">
+      <div class="field-label">Special Action table</div>
+      ${botSpecialTableHtml()}
+    </div>
+    <div class="walk-block">
+      <div class="field-label">Faction option preferences</div>
+      ${listHtml(botOptionGuidelines[state.activeFaction] || [])}
+    </div>
+    <div class="grid2 walk-block">
+      <div>
+        <div class="field-label">Affected piece priority</div>
+        ${listHtml(botPiecePriority)}
+      </div>
+      <div>
+        <div class="field-label">Space selection priority</div>
+        ${listHtml(botSpacePriority)}
+      </div>
+    </div>
+  `;
+}
+
 function actionControlsHtml() {
   const active = activeFaction();
+  if (isActiveBot()) {
+    return `
+      <div class="walk-block">
+        <div class="field-label">Active faction</div>
+        <div class="grid4">${activeFactionButtonsHtml()}</div>
+        <p class="small-note">Current active faction: ${esc(active.label)}</p>
+      </div>
+      ${botRunnerHtml()}
+      <div class="walk-block">
+        <div class="field-label">Was an Election card played?</div>
+        ${yesNoHtml("electionPlayed", "Election card played", "No Election card")}
+      </div>
+    `;
+  }
   return `
     <div class="walk-block">
       <div class="field-label">Active faction</div>
@@ -810,8 +1850,16 @@ function actionControlsHtml() {
       <p class="small-note">Current active faction: ${esc(active.label)}</p>
     </div>
     <div class="walk-block">
+      <div class="field-label">Solo controllers</div>
+      ${controllerControlsHtml()}
+    </div>
+    <div class="walk-block">
       <div class="field-label">Choose the faction's turn option</div>
       ${optionsHtml(actionChoices, "actionChoice")}
+    </div>
+    <div class="walk-block">
+      <div class="field-label">Faction action guide</div>
+      ${actionGuideHtml()}
     </div>
     <div class="walk-block">
       <div class="field-label">Card / event reminder</div>
@@ -1236,6 +2284,11 @@ window.setSequenceAnswer = setSequenceAnswer;
 window.toggleSequenceCheck = toggleSequenceCheck;
 window.continueSequence = continueSequence;
 window.jumpToSequencePhase = jumpToSequencePhase;
+window.setActionContext = setActionContext;
+window.selectAction = selectAction;
+window.setActionSlot = setActionSlot;
+window.setController = setController;
+window.updateBotTurn = updateBotTurn;
 window.updateEventTitle = updateEventTitle;
 window.updateNotes = updateNotes;
 window.updateSaveLoadText = updateSaveLoadText;

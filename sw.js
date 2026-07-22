@@ -1,4 +1,4 @@
-const CACHE = "wr-companion-app-v4";
+const CACHE = "wr-companion-app-v5";
 const ASSETS = [
   "./",
   "./index.html",
