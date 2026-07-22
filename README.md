@@ -1,13 +1,13 @@
 # The Weimar Republic Companion
 
-Phase 1 creates a standalone Weimar Republic companion shell.
+Phase 2 creates the first usable Weimar Republic companion foundation: a faction reference, timeline tracker, round-flow skeleton, local notes, and save/load.
 
-Current root files are WR-specific and intentionally light on rules until the rulebook/playbook extraction pass is complete.
+Current root files are WR-specific. The app is intentionally conservative about rule automation until the rulebook/playbook extraction pass is complete.
 
 ## Project Shape
 
 - `index.html`: static mobile-first PWA shell.
-- `app.js`: single-state, screen-rendered WR shell.
+- `app.js`: single-state, screen-rendered WR companion.
 - `sw.js`: WR-specific service worker cache.
 - `manifest.json`: WR-specific PWA metadata.
 - `assets/`: local WR source PDFs.
@@ -16,6 +16,17 @@ Current root files are WR-specific and intentionally light on rules until the ru
 
 - `assets/The_Weimar_Republic_Playbook_Web.pdf`
 - `assets/The+Weimar+Republic_Rule+book_WEB.pdf`
+
+## Current Features
+
+- 1919-1933 tracker with two rounds per year.
+- Active faction selector.
+- Four faction reference cards.
+- Provisional round-flow checklist.
+- Local notes workspace.
+- Browser save/load and JSON import/export.
+
+Faction and timeline seed data is based on official GMT/InsideGMT overview material, then should be verified against the local rulebook/playbook PDFs before deeper automation.
 
 ## Next Phase
 
