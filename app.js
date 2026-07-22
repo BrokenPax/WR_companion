@@ -14,6 +14,18 @@ const sources = [
     label: "Playbook",
     file: "assets/The_Weimar_Republic_Playbook_Web.pdf",
     note: "Examples, scenarios, and tutorial/reference material."
+  },
+  {
+    id: "turn_aid",
+    label: "Turn Aid",
+    file: "assets/WR_Turn_Aid.pdf",
+    note: "Quick sequence and turn-flow reference."
+  },
+  {
+    id: "bot_aid",
+    label: "Bot Aid",
+    file: "assets/WR_Bot_Aid.pdf",
+    note: "Bot/non-player flow reference for future automation."
   }
 ];
 
@@ -79,7 +91,7 @@ const implementationBacklog = [
     id: "sequence",
     title: "Sequence Of Play",
     status: "Next",
-    body: "Extract exact round structure, event timing, initiative, and cleanup steps from the rulebook."
+    body: "Extract exact round structure, event timing, initiative, and cleanup steps from the turn aid and rulebook."
   },
   {
     id: "actions",
@@ -90,8 +102,8 @@ const implementationBacklog = [
   {
     id: "bots",
     title: "Bot / Solo System",
-    status: "Later",
-    body: "Add automated faction impulses after the human-facing flow is stable."
+    status: "Next",
+    body: "Use the bot aid to model automated faction impulses after the human-facing flow is stable."
   },
   {
     id: "cards",

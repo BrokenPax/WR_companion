@@ -16,6 +16,8 @@ Current root files are WR-specific. The app is intentionally conservative about 
 
 - `assets/The_Weimar_Republic_Playbook_Web.pdf`
 - `assets/The+Weimar+Republic_Rule+book_WEB.pdf`
+- `assets/WR_Turn_Aid.pdf`
+- `assets/WR_Bot_Aid.pdf`
 
 ## Current Features
 
@@ -25,6 +27,7 @@ Current root files are WR-specific. The app is intentionally conservative about 
 - Provisional round-flow checklist.
 - Local notes workspace.
 - Browser save/load and JSON import/export.
+- Local links to rulebook, playbook, turn aid, and bot aid PDFs.
 
 Faction and timeline seed data is based on official GMT/InsideGMT overview material, then should be verified against the local rulebook/playbook PDFs before deeper automation.
 
@@ -35,6 +38,7 @@ Extract structured WR data from the PDFs before implementing guided game flow:
 - factions and player roles
 - sequence of play
 - action menus and legality gates
+- bot/non-player flow
 - event/deck structure
 - markers, tracks, and saved game state shape
 - reusable priority/decision helpers
