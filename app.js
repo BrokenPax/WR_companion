@@ -1,5 +1,5 @@
 const APP_NAME = "The Weimar Republic Companion";
-const APP_BUILD = "phase-6-persistent-board";
+const APP_BUILD = "phase-7-mobile-turn-runner";
 const LOCAL_SAVE_KEY = "wr-companion-state-v6";
 
 const sources = [
@@ -943,7 +943,8 @@ const state = {
     summary: "",
     factionOrder: "",
     impulse: "",
-    specialDie: ""
+    specialDie: "",
+    action: ""
   },
   sequenceChecks: {},
   completedSequence: [],
@@ -1042,6 +1043,7 @@ function normalizeState() {
     factionOrder: "",
     impulse: "",
     specialDie: "",
+    action: "",
     ...state.botTurn
   };
   if (!state.sequenceChecks || typeof state.sequenceChecks !== "object") state.sequenceChecks = {};
@@ -1137,7 +1139,7 @@ function setActiveFaction(factionId) {
   state.actionPlan = ["", ""];
   state.selectedActionId = "";
   state.actionContext = {};
-  state.botTurn = { card: "", summary: "", factionOrder: "", impulse: "", specialDie: "" };
+  state.botTurn = { card: "", summary: "", factionOrder: "", impulse: "", specialDie: "", action: "" };
   render();
 }
 
@@ -1158,7 +1160,12 @@ function setTurnOrderSlot(slot, factionId) {
   }
   order[index] = factionId;
   state.turnOrder = order;
-  state.activeFaction = state.turnOrder[state.activeTurnIndex] || state.activeFaction;
+  if (state.actionPage === "setup") {
+    state.activeTurnIndex = 0;
+    state.activeFaction = state.turnOrder[0] || state.activeFaction;
+  } else {
+    state.activeFaction = state.turnOrder[state.activeTurnIndex] || state.activeFaction;
+  }
   render();
 }
 
@@ -1247,6 +1254,9 @@ function setActionPage(page) {
 }
 
 function saveTurnSetup() {
+  state.activeTurnIndex = 0;
+  state.activeFaction = state.turnOrder[0] || "coalition";
+  resetCurrentFactionPrompts();
   state.actionPage = "turn";
   render();
 }
@@ -1261,7 +1271,7 @@ function resetCurrentFactionPrompts() {
   state.actionPlan = ["", ""];
   state.selectedActionId = "";
   state.eventTitle = "";
-  state.botTurn = { card: "", summary: "", factionOrder: "", impulse: "", specialDie: "" };
+  state.botTurn = { card: "", summary: "", factionOrder: "", impulse: "", specialDie: "", action: "" };
   clearSequenceChecks("bot:");
 }
 
@@ -1313,12 +1323,12 @@ function setController(factionId, controller) {
   state.controllers[factionId] = controller === "bot" ? "bot" : "human";
   state.actionPlan = ["", ""];
   state.selectedActionId = "";
-  state.botTurn = { card: "", summary: "", factionOrder: "", impulse: "", specialDie: "" };
+  state.botTurn = { card: "", summary: "", factionOrder: "", impulse: "", specialDie: "", action: "" };
   render();
 }
 
 function updateBotTurn(key, value) {
-  if (!["card", "summary", "factionOrder", "impulse", "specialDie"].includes(key)) return;
+  if (!["card", "summary", "factionOrder", "impulse", "specialDie", "action"].includes(key)) return;
   state.botTurn[key] = value;
   if (key === "summary") {
     state.sequenceAnswers.electionPlayed = value === "one_action" ? "no" : "";
@@ -1391,6 +1401,9 @@ function continueSequence() {
     if (state.actionPage === "board") {
       saveBoardStatePage();
       return;
+    }
+    if (isActiveBot() && !state.sequenceAnswers.electionPlayed) {
+      state.sequenceAnswers.electionPlayed = "no";
     }
     applyHumanActionMemoryUpdates();
     if (state.activeTurnIndex < state.turnOrder.length - 1) {
@@ -1619,7 +1632,8 @@ function resetApp() {
     summary: "",
     factionOrder: "",
     impulse: "",
-    specialDie: ""
+    specialDie: "",
+    action: ""
   };
   state.sequenceChecks = {};
   state.completedSequence = [];
@@ -1669,22 +1683,38 @@ function momentumButtonsHtml() {
 function turnOrderSetupHtml() {
   return `<div class="turn-order-grid">
     ${state.turnOrder.map((id, index) => {
-      const active = index === state.activeTurnIndex;
-      const complete = index < state.activeTurnIndex;
-      return `<div class="turn-order-item ${active ? "active" : ""} ${complete ? "complete" : ""}">
+      const active = index === 0;
+      return `<div class="turn-order-item ${active ? "active" : ""}">
         <div class="turn-order-label">${index + 1}</div>
         <select class="select-input" onchange="setTurnOrderSlot(${index}, this.value)">
           ${factionOptionsHtml(id)}
         </select>
-        <button class="mini-btn" onclick="setActiveTurnIndex(${index})">${active ? "Acting" : "Set active"}</button>
+      </div>`;
+    }).join("")}
+  </div>`;
+}
+
+function turnOrderRailHtml() {
+  return `<div class="turn-rail">
+    ${state.turnOrder.map((id, index) => {
+      const faction = factions[id] || factions.coalition;
+      const active = index === state.activeTurnIndex;
+      const complete = index < state.activeTurnIndex;
+      const controller = state.controllers[id] === "bot" ? "Bot" : "Human";
+      return `<div class="turn-rail-item ${active ? "active" : ""} ${complete ? "complete" : ""}">
+        <span class="turn-order-label">${complete ? "OK" : index + 1}</span>
+        <span>
+          <strong>${esc(faction.short)}</strong>
+          <small>${esc(active ? "Acting now" : controller)}</small>
+        </span>
       </div>`;
     }).join("")}
   </div>`;
 }
 
 function turnQuestionStackHtml() {
-  const active = activeFaction();
   const momentum = factions[state.momentumFaction] || factions.coalition;
+  const firstFaction = factions[state.turnOrder[0]] || factions.coalition;
   return `
     <div class="question-stack">
       <div class="question-card">
@@ -1706,10 +1736,7 @@ function turnQuestionStackHtml() {
       <div class="question-card">
         <div class="field-label">4. What is the turn order?</div>
         ${turnOrderSetupHtml()}
-      </div>
-      <div class="question-card">
-        <div class="field-label">5. Who is acting now?</div>
-        <div class="info-band"><strong>${esc(active.short)}</strong> is faction ${state.activeTurnIndex + 1} of ${state.turnOrder.length} in the Action Step.</div>
+        <p class="small-note">${esc(firstFaction.short)} will act first. Continue will then advance through this list automatically.</p>
       </div>
     </div>
   `;
@@ -1827,12 +1854,8 @@ function continueHelpHtml() {
   if (phase.id !== "action" || state.actionPage !== "turn" || canContinueSequence()) return "";
   if (isActiveBot()) {
     const missing = [];
-    if (!state.botTurn.card) missing.push("bot card");
     if (!state.botTurn.summary) missing.push("Action Step Summary");
-    if (!state.botTurn.factionOrder) missing.push("Faction Order");
-    if (!state.botTurn.impulse) missing.push("Impulse Space/Region");
-    if (state.botTurn.summary === "event_two_actions" && !state.sequenceAnswers.electionPlayed) missing.push("Election card answer");
-    return `<div class="small-note blocked-note">Finish: ${esc(missing.join(", "))}.</div>`;
+    return `<div class="small-note blocked-note">Choose: ${esc(missing.join(", "))}.</div>`;
   }
   if (!state.sequenceAnswers.actionChoice) return `<div class="small-note blocked-note">Choose whether this faction takes Actions, plays an Event, or passes.</div>`;
   if ((state.sequenceAnswers.actionChoice === "event_then_actions" || state.sequenceAnswers.actionChoice === "actions_then_event") && !state.sequenceAnswers.electionPlayed) {
@@ -1846,9 +1869,7 @@ function canContinueSequence() {
   if (phase.id === "action") {
     if (state.actionPage === "setup" || state.actionPage === "board") return true;
     if (isActiveBot()) {
-      if (!state.botTurn.card || !state.botTurn.summary || !state.botTurn.factionOrder || !state.botTurn.impulse) return false;
-      if (state.botTurn.summary === "event_two_actions" && !state.sequenceAnswers.electionPlayed) return false;
-      return true;
+      return !!state.botTurn.summary;
     }
     if (!state.sequenceAnswers.actionChoice) return false;
     if (
@@ -2209,13 +2230,79 @@ function botSpecialForDie() {
   }) || null;
 }
 
+function botActionPickerHtml() {
+  const options = [
+    {
+      id: "special",
+      title: "Special Action",
+      summary: "Roll on the faction Special Action table."
+    },
+    ...currentFactionActions().map(action => ({
+      id: action.id,
+      title: action.title,
+      summary: action.summary
+    }))
+  ];
+  return `<div class="compact-action-list">
+    ${options.map(option => {
+      const selected = state.botTurn.action === option.id;
+      return `<button class="compact-action ${selected ? "selected" : ""}" onclick="updateBotTurn('action', '${option.id}')">
+        <span>${esc(option.title)}</span>
+        ${selected ? badge("Selected", "ready") : ""}
+      </button>`;
+    }).join("")}
+  </div>`;
+}
+
+function botSelectedActionDetailHtml() {
+  if (!state.botTurn.action) {
+    return `<div class="info-band">Choose the first bot Action that can have legal effect. For a second bot Action, continue from the next priority instead of restarting at the top.</div>`;
+  }
+  if (state.botTurn.action === "special") {
+    return botSpecialTableHtml();
+  }
+  const action = findAction(state.botTurn.action);
+  if (!action) return "";
+  const status = actionStatus(action);
+  return `<article class="action-detail ${status.tone}">
+    <div class="row">
+      <div>
+        <div class="kicker">Bot Action</div>
+        <h3>${esc(action.title)}</h3>
+      </div>
+      ${badge("Rule " + action.citation, status.tone)}
+    </div>
+    <p class="muted">${esc(action.summary)}</p>
+    <div class="detail-grid">
+      <div>
+        <div class="field-label">Requirements</div>
+        ${listHtml(action.requires)}
+      </div>
+      ${action.procedure ? `<div>
+        <div class="field-label">Procedure</div>
+        ${listHtml(action.procedure)}
+      </div>` : ""}
+      ${action.warnings ? `<div>
+        <div class="field-label">Watch For</div>
+        ${listHtml(action.warnings)}
+      </div>` : ""}
+    </div>
+  </article>`;
+}
+
+function botSpecialDieButtonsHtml() {
+  return `<div class="die-strip">
+    ${[1, 2, 3, 4, 5, 6].map(die => `<button class="mini-btn ${Number(state.botTurn.specialDie) === die ? "selected" : ""}" onclick="updateBotTurn('specialDie', '${die}')">${die}</button>`).join("")}
+  </div>`;
+}
+
 function botSpecialTableHtml() {
   const selected = botSpecialForDie();
   return `<div class="bot-special">
     <div class="row">
       <div>
         <div class="field-label">Special Action die</div>
-        <input class="text-input die-input" value="${esc(state.botTurn.specialDie)}" oninput="updateBotTurn('specialDie', this.value)" placeholder="1-6">
+        ${botSpecialDieButtonsHtml()}
       </div>
       ${selected ? badge(selected.range + ": " + selected.title, "check") : badge("Roll if Special", "warn")}
     </div>
@@ -2274,12 +2361,12 @@ function botRunnerHtml() {
     <div class="walk-block">
       <div class="field-label">Bot Action priority</div>
       <div class="priority-row">${priorities.map((item, index) => `<span><strong>${index + 1}</strong> ${esc(item)}</span>`).join("")}</div>
-      <p class="small-note">For each bot Action, implement the first listed priority that will have some legal effect. For a second bot Action, continue from the next priority instead of restarting at the top.</p>
     </div>
-    <details class="compact-details">
-      <summary>Special Action table</summary>
-      ${botSpecialTableHtml()}
-    </details>
+    <div class="walk-block">
+      <div class="field-label">Select bot Action to resolve</div>
+      ${botActionPickerHtml()}
+      ${botSelectedActionDetailHtml()}
+    </div>
     <details class="compact-details">
       <summary>Bot targeting and option priorities</summary>
       <div class="walk-block">
@@ -2301,7 +2388,6 @@ function botRunnerHtml() {
 }
 
 function actionControlsHtml() {
-  const active = activeFaction();
   if (state.actionPage === "setup") {
     return `
       ${turnContextSummaryHtml()}
@@ -2316,6 +2402,7 @@ function actionControlsHtml() {
   }
   const runnerTop = `
     ${turnContextSummaryHtml()}
+    ${turnOrderRailHtml()}
     <div class="runner-toolbar">
       ${btn("Edit setup", "setActionPage('setup')")}
       ${btn("Board state", "setActionPage('board')")}
@@ -2324,11 +2411,6 @@ function actionControlsHtml() {
   if (isActiveBot()) {
     return `
       ${runnerTop}
-      <div class="walk-block">
-        <div class="field-label">Active faction</div>
-        <div class="grid4">${activeFactionButtonsHtml()}</div>
-        <p class="small-note">Current active faction: ${esc(active.label)}</p>
-      </div>
       ${botRunnerHtml()}
       <div class="walk-block">
         <div class="field-label">Was an Election card played?</div>
@@ -2338,11 +2420,6 @@ function actionControlsHtml() {
   }
   return `
     ${runnerTop}
-    <div class="walk-block">
-      <div class="field-label">Active faction</div>
-      <div class="grid4">${activeFactionButtonsHtml()}</div>
-      <p class="small-note">Current active faction: ${esc(active.label)}</p>
-    </div>
     <div class="walk-block">
       <div class="field-label">Are you playing an Event, taking Actions, or passing?</div>
       ${optionsHtml(actionChoices, "actionChoice")}
@@ -2512,7 +2589,7 @@ function renderDashboard(app) {
 
     ${soloSetupPanelHtml()}
 
-    <section class="panel">
+    <section class="panel turn-panel">
       <div class="section-head">
         <div>
           <div class="kicker">Current Turn</div>
@@ -2534,7 +2611,7 @@ function renderDashboard(app) {
       </div>
     </section>
 
-    <section class="panel">
+    <section class="panel sequence-panel">
       <div class="section-head">
         <div>
           <div class="kicker">Sequence Of Play</div>
@@ -2545,18 +2622,18 @@ function renderDashboard(app) {
       </div>
       ${sequenceProgressHtml()}
       ${sequenceControlsHtml()}
-      <div class="walk-block">
-        <div class="field-label">Turn Aid reminders</div>
-        ${reminderListHtml(phase.reminders)}
-      </div>
       <div class="sequence-actions">
         ${continueButtonHtml()}
         ${continueHelpHtml()}
       </div>
+      <details class="compact-details turn-aid-details">
+        <summary>Turn Aid reminders</summary>
+        ${reminderListHtml(phase.reminders)}
+      </details>
       <div class="small-note">Source: ${esc(phase.source)}. This walkthrough models the Turn Aid sequence; exact action legality and faction-specific victory requirements still need rulebook/player-aid extraction.</div>
     </section>
 
-    <section class="panel">
+    <section class="panel source-panel">
       <div class="section-head">
         <div>
           <div class="kicker">Source Material</div>
