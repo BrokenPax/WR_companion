@@ -1967,16 +1967,17 @@ function actionCardsHtml() {
   </div>`;
 }
 
-function actionSelectHtml() {
-  return `<select class="select-input action-select" onchange="selectAction(this.value)">
-    <option value="">Choose an action...</option>
+function compactActionPickerHtml() {
+  return `<div class="compact-action-list">
     ${currentFactionActions().map(action => {
+      const selected = state.selectedActionId === action.id;
       const status = actionStatus(action);
-      return `<option value="${action.id}" ${state.selectedActionId === action.id ? "selected" : ""}>
-        ${esc(action.title)} (${esc(status.label)})
-      </option>`;
+      return `<button class="compact-action ${selected ? "selected" : ""} ${status.tone}" onclick="selectAction('${action.id}')">
+        <span>${esc(action.title)}</span>
+        ${badge(status.label, status.tone)}
+      </button>`;
     }).join("")}
-  </select>`;
+  </div>`;
 }
 
 function selectedActionDetailHtml() {
@@ -2045,7 +2046,7 @@ function actionGuideHtml() {
     </div>
     <div class="walk-block mobile-action-picker">
       <div class="field-label">Choose action</div>
-      ${actionSelectHtml()}
+      ${compactActionPickerHtml()}
     </div>
     ${selectedActionDetailHtml()}
     <div class="walk-block">
