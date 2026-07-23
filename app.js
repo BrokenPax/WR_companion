@@ -1595,6 +1595,29 @@ function turnQuestionStackHtml() {
   `;
 }
 
+function turnContextSummaryHtml() {
+  const active = activeFaction();
+  const momentum = factions[state.momentumFaction] || factions.coalition;
+  const order = state.turnOrder.map(id => factions[id]?.short || id).join(" > ");
+  return `<div class="mobile-turn-summary">
+    <div>
+      <div class="summary-main">${esc(state.year)} ${esc(currentHalfLabel())} | ${esc(active.short)} acting</div>
+      <div class="summary-sub">Momentum: ${esc(momentum.short)} | Order: ${esc(order)}</div>
+    </div>
+    ${badge(activeController() === "bot" ? "Bot" : "Human", active.tone)}
+  </div>`;
+}
+
+function turnSetupControlsHtml() {
+  return `
+    <div class="desktop-setup">${turnQuestionStackHtml()}</div>
+    <details class="mobile-setup">
+      <summary>Adjust year, Momentum, and turn order</summary>
+      ${turnQuestionStackHtml()}
+    </details>
+  `;
+}
+
 function stepChecklistHtml() {
   return Object.entries(stepLabels).map(([key, label]) => {
     const complete = !!state.completedSteps[key];
@@ -1767,6 +1790,18 @@ function actionCardsHtml() {
   </div>`;
 }
 
+function actionSelectHtml() {
+  return `<select class="select-input action-select" onchange="selectAction(this.value)">
+    <option value="">Choose an action...</option>
+    ${currentFactionActions().map(action => {
+      const status = actionStatus(action);
+      return `<option value="${action.id}" ${state.selectedActionId === action.id ? "selected" : ""}>
+        ${esc(action.title)} (${esc(status.label)})
+      </option>`;
+    }).join("")}
+  </select>`;
+}
+
 function selectedActionDetailHtml() {
   const action = findAction(state.selectedActionId) || currentFactionActions()[0];
   if (!action) return "";
@@ -1831,11 +1866,15 @@ function actionGuideHtml() {
       <div class="field-label">Table-state filters</div>
       ${actionContextControlsHtml()}
     </div>
-    <div class="walk-block">
-      <div class="field-label">${esc(activeFaction().short)} action menu</div>
-      ${actionCardsHtml()}
+    <div class="walk-block mobile-action-picker">
+      <div class="field-label">Choose action</div>
+      ${actionSelectHtml()}
     </div>
     ${selectedActionDetailHtml()}
+    <div class="walk-block">
+      <div class="field-label">${esc(activeFaction().short)} action menu</div>
+      <div class="desktop-action-menu">${actionCardsHtml()}</div>
+    </div>
     <div class="walk-block">
       <div class="field-label">Global Action limits</div>
       ${listHtml(globalActionLimits)}
@@ -1982,24 +2021,27 @@ function botRunnerHtml() {
       <div class="priority-row">${priorities.map((item, index) => `<span><strong>${index + 1}</strong> ${esc(item)}</span>`).join("")}</div>
       <p class="small-note">For each bot Action, implement the first listed priority that will have some legal effect. For a second bot Action, continue from the next priority instead of restarting at the top.</p>
     </div>
-    <div class="walk-block">
-      <div class="field-label">Special Action table</div>
+    <details class="compact-details">
+      <summary>Special Action table</summary>
       ${botSpecialTableHtml()}
-    </div>
-    <div class="walk-block">
-      <div class="field-label">Faction option preferences</div>
-      ${listHtml(botOptionGuidelines[state.activeFaction] || [])}
-    </div>
-    <div class="grid2 walk-block">
-      <div>
-        <div class="field-label">Affected piece priority</div>
-        ${listHtml(botPiecePriority)}
+    </details>
+    <details class="compact-details">
+      <summary>Bot targeting and option priorities</summary>
+      <div class="walk-block">
+        <div class="field-label">Faction option preferences</div>
+        ${listHtml(botOptionGuidelines[state.activeFaction] || [])}
       </div>
-      <div>
-        <div class="field-label">Space selection priority</div>
-        ${listHtml(botSpacePriority)}
+      <div class="grid2 walk-block">
+        <div>
+          <div class="field-label">Affected piece priority</div>
+          ${listHtml(botPiecePriority)}
+        </div>
+        <div>
+          <div class="field-label">Space selection priority</div>
+          ${listHtml(botSpacePriority)}
+        </div>
       </div>
-    </div>
+    </details>
   `;
 }
 
@@ -2007,7 +2049,8 @@ function actionControlsHtml() {
   const active = activeFaction();
   if (isActiveBot()) {
     return `
-      ${turnQuestionStackHtml()}
+      ${turnContextSummaryHtml()}
+      ${turnSetupControlsHtml()}
       <div class="walk-block">
         <div class="field-label">Active faction</div>
         <div class="grid4">${activeFactionButtonsHtml()}</div>
@@ -2021,7 +2064,8 @@ function actionControlsHtml() {
     `;
   }
   return `
-    ${turnQuestionStackHtml()}
+    ${turnContextSummaryHtml()}
+    ${turnSetupControlsHtml()}
     <div class="walk-block">
       <div class="field-label">Active faction</div>
       <div class="grid4">${activeFactionButtonsHtml()}</div>
