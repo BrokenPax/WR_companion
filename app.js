@@ -1,5 +1,5 @@
 const APP_NAME = "The Weimar Republic Companion";
-const APP_BUILD = "phase-7-mobile-turn-runner";
+const APP_BUILD = "phase-8-cbe-style-runner";
 const LOCAL_SAVE_KEY = "wr-companion-state-v6";
 
 const sources = [
@@ -910,6 +910,7 @@ const state = {
   currentStep: "event",
   sequenceStepIndex: 0,
   actionPage: "setup",
+  actionSubpage: "choice",
   previousActionPage: "turn",
   sequenceAnswers: {
     actionChoice: "",
@@ -1004,6 +1005,7 @@ function normalizeState() {
   if (!sources.some(source => source.id === state.currentSource)) state.currentSource = "rulebook";
   if (!state.sequenceAnswers || typeof state.sequenceAnswers !== "object") state.sequenceAnswers = {};
   if (!["setup", "turn", "board"].includes(state.actionPage)) state.actionPage = "setup";
+  if (!["choice", "event", "action1", "action2", "election", "bot_summary", "bot_action1", "bot_action2", "bot_election", "done"].includes(state.actionSubpage)) state.actionSubpage = "choice";
   if (!["setup", "turn", "board"].includes(state.previousActionPage)) state.previousActionPage = "turn";
   state.sequenceAnswers = {
     actionChoice: "",
@@ -1078,6 +1080,11 @@ function currentFactionActions() {
 
 function findAction(actionId) {
   return currentFactionActions().find(action => action.id === actionId) || null;
+}
+
+function defaultActionId() {
+  const actions = currentFactionActions();
+  return (actions.find(action => actionStatus(action).tone !== "blocked") || actions[0] || {}).id || "";
 }
 
 function activeController() {
@@ -1258,6 +1265,7 @@ function saveTurnSetup() {
   state.activeFaction = state.turnOrder[0] || "coalition";
   resetCurrentFactionPrompts();
   state.actionPage = "turn";
+  state.actionSubpage = isActiveBot() ? "bot_summary" : "choice";
   render();
 }
 
@@ -1268,6 +1276,7 @@ function saveBoardStatePage() {
 
 function resetCurrentFactionPrompts() {
   state.sequenceAnswers.actionChoice = "";
+  state.actionSubpage = isActiveBot() ? "bot_summary" : "choice";
   state.actionPlan = ["", ""];
   state.selectedActionId = "";
   state.eventTitle = "";
@@ -1285,6 +1294,10 @@ function setSequenceAnswer(key, value) {
     } else {
       state.sequenceAnswers.electionPlayed = "";
     }
+    if (value === "pass") state.actionSubpage = "election";
+    if (value === "one_action") state.actionSubpage = "action1";
+    if (value === "event_then_actions") state.actionSubpage = "event";
+    if (value === "actions_then_event") state.actionSubpage = "action1";
   }
   if (key === "electionPlayed" && value === "no") {
     state.sequenceAnswers.generalElectionOutcome = "";
@@ -1318,6 +1331,22 @@ function setActionSlot(slot, actionId) {
   render();
 }
 
+function chooseActionForSlot(slot, actionId) {
+  const index = Number(slot);
+  if (![0, 1].includes(index)) return;
+  if (actionId && !findAction(actionId)) return;
+  state.actionPlan[index] = actionId;
+  state.selectedActionId = actionId || state.selectedActionId;
+  if (index === 0 && requiredActionSlots().length > 1) {
+    state.actionSubpage = "action2";
+  } else if (state.sequenceAnswers.actionChoice === "actions_then_event") {
+    state.actionSubpage = "event";
+  } else {
+    state.actionSubpage = "election";
+  }
+  render();
+}
+
 function setController(factionId, controller) {
   if (!factions[factionId]) return;
   state.controllers[factionId] = controller === "bot" ? "bot" : "human";
@@ -1332,6 +1361,7 @@ function updateBotTurn(key, value) {
   state.botTurn[key] = value;
   if (key === "summary") {
     state.sequenceAnswers.electionPlayed = value === "one_action" ? "no" : "";
+    state.actionSubpage = "bot_action1";
   }
   render();
 }
@@ -1344,6 +1374,7 @@ function toggleSequenceCheck(key) {
 function resetSequenceForNextAction() {
   state.sequenceStepIndex = 0;
   state.actionPage = "setup";
+  state.actionSubpage = "choice";
   state.previousActionPage = "turn";
   state.sequenceAnswers.actionChoice = "";
   state.sequenceAnswers.electionPlayed = "";
@@ -1388,6 +1419,64 @@ function applyHumanActionMemoryUpdates() {
   }
 }
 
+function advanceHumanActionSubpage() {
+  if (state.actionSubpage === "choice") {
+    const choice = state.sequenceAnswers.actionChoice;
+    if (choice === "pass") state.actionSubpage = "election";
+    if (choice === "one_action") state.actionSubpage = "action1";
+    if (choice === "event_then_actions") state.actionSubpage = "event";
+    if (choice === "actions_then_event") state.actionSubpage = "action1";
+    return true;
+  }
+  if (state.actionSubpage === "event") {
+    state.actionSubpage = state.sequenceAnswers.actionChoice === "event_then_actions" ? "action1" : "election";
+    return true;
+  }
+  if (state.actionSubpage === "action1") {
+    if (requiredActionSlots().length > 1) {
+      state.actionSubpage = "action2";
+    } else {
+      state.actionSubpage = "election";
+    }
+    return true;
+  }
+  if (state.actionSubpage === "action2") {
+    state.actionSubpage = state.sequenceAnswers.actionChoice === "actions_then_event" ? "event" : "election";
+    return true;
+  }
+  if (state.actionSubpage === "election") {
+    state.actionSubpage = "done";
+    return false;
+  }
+  return false;
+}
+
+function advanceBotActionSubpage() {
+  if (state.actionSubpage === "bot_summary") {
+    state.actionSubpage = "bot_action1";
+    return true;
+  }
+  if (state.actionSubpage === "bot_action1") {
+    state.sequenceChecks["bot:action1"] = true;
+    state.botTurn.action = "";
+    state.botTurn.specialDie = "";
+    state.actionSubpage = state.botTurn.summary === "event_two_actions" ? "bot_action2" : "bot_election";
+    return true;
+  }
+  if (state.actionSubpage === "bot_action2") {
+    state.sequenceChecks["bot:action2"] = true;
+    state.botTurn.action = "";
+    state.botTurn.specialDie = "";
+    state.actionSubpage = "bot_election";
+    return true;
+  }
+  if (state.actionSubpage === "bot_election") {
+    state.actionSubpage = "done";
+    return false;
+  }
+  return false;
+}
+
 function continueSequence() {
   const phase = currentSequencePhase();
   markSequenceComplete(phase.id);
@@ -1402,6 +1491,18 @@ function continueSequence() {
       saveBoardStatePage();
       return;
     }
+    if (state.actionSubpage !== "done") {
+      if (isActiveBot()) {
+        if (!state.sequenceAnswers.electionPlayed) state.sequenceAnswers.electionPlayed = "no";
+        if (advanceBotActionSubpage()) {
+          render();
+          return;
+        }
+      } else if (advanceHumanActionSubpage()) {
+        render();
+        return;
+      }
+    }
     if (isActiveBot() && !state.sequenceAnswers.electionPlayed) {
       state.sequenceAnswers.electionPlayed = "no";
     }
@@ -1411,6 +1512,7 @@ function continueSequence() {
       state.activeFaction = state.turnOrder[state.activeTurnIndex];
       resetCurrentFactionPrompts();
       state.actionPage = "turn";
+      state.actionSubpage = isActiveBot() ? "bot_summary" : "choice";
       render();
       return;
     }
@@ -1599,6 +1701,7 @@ function resetApp() {
   state.currentStep = "event";
   state.sequenceStepIndex = 0;
   state.actionPage = "setup";
+  state.actionSubpage = "choice";
   state.previousActionPage = "turn";
   state.sequenceAnswers = {
     actionChoice: "",
@@ -1844,7 +1947,26 @@ function listHtml(items) {
   return `<ul class="rule-list">${items.map(item => `<li>${esc(item)}</li>`).join("")}</ul>`;
 }
 
-function continueButtonHtml(label = "Continue") {
+function continueButtonLabel() {
+  const phase = currentSequencePhase();
+  if (phase.id === "action" && state.actionPage === "turn") {
+    if (isActiveBot()) {
+      if (state.actionSubpage === "bot_summary") return "Start Bot Action 1";
+      if (state.actionSubpage === "bot_action1") return state.botTurn.summary === "event_two_actions" ? "Complete Bot Action 1" : "Finish bot turn";
+      if (state.actionSubpage === "bot_action2") return "Finish bot turn";
+      if (state.actionSubpage === "bot_election") return "Next faction";
+    } else {
+      if (state.actionSubpage === "choice") return "Use this turn option";
+      if (state.actionSubpage === "event") return "Event resolved";
+      if (state.actionSubpage === "action1") return requiredActionSlots().length > 1 ? "Complete Action 1" : "Finish action";
+      if (state.actionSubpage === "action2") return state.sequenceAnswers.actionChoice === "actions_then_event" ? "Go to Event" : "Finish actions";
+      if (state.actionSubpage === "election") return "Next faction";
+    }
+  }
+  return "Continue";
+}
+
+function continueButtonHtml(label = continueButtonLabel()) {
   const disabled = !canContinueSequence();
   return `<button class="btn primary" ${disabled ? "disabled" : "onclick=\"continueSequence()\""}>${esc(label)}</button>`;
 }
@@ -1853,10 +1975,14 @@ function continueHelpHtml() {
   const phase = currentSequencePhase();
   if (phase.id !== "action" || state.actionPage !== "turn" || canContinueSequence()) return "";
   if (isActiveBot()) {
-    const missing = [];
-    if (!state.botTurn.summary) missing.push("Action Step Summary");
-    return `<div class="small-note blocked-note">Choose: ${esc(missing.join(", "))}.</div>`;
+    if (state.actionSubpage === "bot_summary") return `<div class="small-note blocked-note">Choose the bot Action Step Summary.</div>`;
+    if (state.actionSubpage === "bot_action1" || state.actionSubpage === "bot_action2") return `<div class="small-note blocked-note">Select the bot Action being resolved.</div>`;
+    return "";
   }
+  if (state.actionSubpage === "choice" && !state.sequenceAnswers.actionChoice) return `<div class="small-note blocked-note">Choose whether this faction takes Actions, plays an Event, or passes.</div>`;
+  if (state.actionSubpage === "action1" && !state.actionPlan[0]) return `<div class="small-note blocked-note">Choose Action 1.</div>`;
+  if (state.actionSubpage === "action2" && !state.actionPlan[1]) return `<div class="small-note blocked-note">Choose Action 2.</div>`;
+  if (state.actionSubpage === "election" && !state.sequenceAnswers.electionPlayed) return `<div class="small-note blocked-note">Answer whether an Election card was played.</div>`;
   if (!state.sequenceAnswers.actionChoice) return `<div class="small-note blocked-note">Choose whether this faction takes Actions, plays an Event, or passes.</div>`;
   if ((state.sequenceAnswers.actionChoice === "event_then_actions" || state.sequenceAnswers.actionChoice === "actions_then_event") && !state.sequenceAnswers.electionPlayed) {
     return `<div class="small-note blocked-note">Answer whether an Election card was played.</div>`;
@@ -1869,20 +1995,23 @@ function canContinueSequence() {
   if (phase.id === "action") {
     if (state.actionPage === "setup" || state.actionPage === "board") return true;
     if (isActiveBot()) {
-      return !!state.botTurn.summary;
+      if (state.actionSubpage === "bot_summary") return !!state.botTurn.summary;
+      if (state.actionSubpage === "bot_action1" || state.actionSubpage === "bot_action2") return !!state.botTurn.action;
+      if (state.actionSubpage === "bot_election") return true;
+      return state.actionSubpage === "done";
     }
-    if (!state.sequenceAnswers.actionChoice) return false;
-    if (
-      (state.sequenceAnswers.actionChoice === "event_then_actions" || state.sequenceAnswers.actionChoice === "actions_then_event") &&
-      !state.sequenceAnswers.electionPlayed
-    ) {
-      return false;
+    if (state.actionSubpage === "choice") return !!state.sequenceAnswers.actionChoice;
+    if (state.actionSubpage === "event") return true;
+    if (state.actionSubpage === "action1") {
+      const action = findAction(state.actionPlan[0]);
+      return !!action && actionStatus(action).tone !== "blocked";
     }
-    if (state.sequenceAnswers.actionChoice === "pass") return true;
-    return requiredActionSlots().every((_, index) => {
-      const action = findAction(state.actionPlan[index]);
-      return action && actionStatus(action).tone !== "blocked";
-    });
+    if (state.actionSubpage === "action2") {
+      const action = findAction(state.actionPlan[1]);
+      return !!action && actionStatus(action).tone !== "blocked";
+    }
+    if (state.actionSubpage === "election") return !!state.sequenceAnswers.electionPlayed;
+    return state.actionSubpage === "done";
   }
   if (phase.id === "sudden_victory") return !!state.sequenceAnswers.suddenVictory;
   if (phase.id === "elections_gate") return !!state.sequenceAnswers.electionPlayed;
@@ -1957,6 +2086,15 @@ function boardStateControlsHtml() {
   const board = state.boardState;
   const progressOptions = Array.from({ length: 7 }, (_, value) => `<option value="${value}" ${board.progress === value ? "selected" : ""}>${value}</option>`).join("");
   const reactionOptions = Array.from({ length: 7 }, (_, value) => `<option value="${value}" ${board.reaction === value ? "selected" : ""}>${value}</option>`).join("");
+  const economyOptions = [
+    ["hyper_3", "Left 3"],
+    ["hyper_2", "Left 2"],
+    ["hyper_1", "Left 1"],
+    ["stable", "Stable"],
+    ["mass_1", "Right 1"],
+    ["mass_2", "Right 2"],
+    ["mass_3", "Right 3"]
+  ];
   return `<div class="board-state-grid">
     <div class="context-item">
       <div class="context-label">Progress level</div>
@@ -1966,17 +2104,12 @@ function boardStateControlsHtml() {
       <div class="context-label">Reaction level</div>
       <select class="select-input" onchange="setBoardState('reaction', this.value)">${reactionOptions}</select>
     </div>
-    <div class="context-item">
+    <div class="context-item wide">
       <div class="context-label">Economy marker</div>
-      <select class="select-input" onchange="setBoardState('economy', this.value)">
-        <option value="hyper_3" ${board.economy === "hyper_3" ? "selected" : ""}>Far left / Hyperinflation</option>
-        <option value="hyper_2" ${board.economy === "hyper_2" ? "selected" : ""}>Left 2</option>
-        <option value="hyper_1" ${board.economy === "hyper_1" ? "selected" : ""}>Left 1</option>
-        <option value="stable" ${board.economy === "stable" ? "selected" : ""}>Stable</option>
-        <option value="mass_1" ${board.economy === "mass_1" ? "selected" : ""}>Right 1</option>
-        <option value="mass_2" ${board.economy === "mass_2" ? "selected" : ""}>Right 2</option>
-        <option value="mass_3" ${board.economy === "mass_3" ? "selected" : ""}>Far right / Mass Unemployment</option>
-      </select>
+      <div class="track-strip economy-track">
+        ${economyOptions.map(([value, label]) => `<button class="${board.economy === value ? "selected" : ""}" onclick="setBoardState('economy', '${value}')">${esc(label)}</button>`).join("")}
+      </div>
+      <div class="track-captions"><span>Hyperinflation</span><span>Mass Unemployment</span></div>
     </div>
     <div class="context-item">
       <div class="context-label">Coalition Unity</div>
@@ -2053,9 +2186,10 @@ function actionCardsHtml() {
 }
 
 function compactActionPickerHtml() {
+  const defaultId = defaultActionId();
   return `<div class="compact-action-list">
     ${currentFactionActions().map(action => {
-      const selected = state.selectedActionId === action.id;
+      const selected = state.selectedActionId === action.id || (!state.selectedActionId && action.id === defaultId);
       const status = actionStatus(action);
       return `<button class="compact-action ${selected ? "selected" : ""} ${status.tone}" onclick="selectAction('${action.id}')">
         <span>${esc(action.title)}</span>
@@ -2066,11 +2200,12 @@ function compactActionPickerHtml() {
 }
 
 function selectedActionDetailHtml() {
-  const action = findAction(state.selectedActionId) || currentFactionActions()[0];
+  const action = findAction(state.selectedActionId) || findAction(defaultActionId()) || currentFactionActions()[0];
   if (!action) return "";
   const status = actionStatus(action);
   const blockedText = status.blocked.map(key => actionStateQuestions[key]);
   const unknownText = status.unknown.map(key => actionStateQuestions[key]);
+  const slotTargets = state.actionSubpage === "action1" ? [0] : state.actionSubpage === "action2" ? [1] : requiredActionSlots();
   return `<article class="action-detail ${status.tone}">
     <div class="row">
       <div>
@@ -2097,7 +2232,7 @@ function selectedActionDetailHtml() {
       </div>` : ""}
     </div>
     <div class="slot-actions">
-      ${requiredActionSlots().map(index => `<button class="mini-btn" onclick="setActionSlot(${index}, '${action.id}')">Use as Action ${index + 1}</button>`).join("")}
+      ${slotTargets.map(index => `<button class="mini-btn" ${status.tone === "blocked" ? "disabled" : `onclick="chooseActionForSlot(${index}, '${action.id}')"`}>Use as Action ${index + 1}</button>`).join("")}
     </div>
   </article>`;
 }
@@ -2235,20 +2370,24 @@ function botActionPickerHtml() {
     {
       id: "special",
       title: "Special Action",
-      summary: "Roll on the faction Special Action table."
+      summary: "Roll on the faction Special Action table.",
+      tone: "ready",
+      label: "Bot table"
     },
     ...currentFactionActions().map(action => ({
       id: action.id,
       title: action.title,
-      summary: action.summary
+      summary: action.summary,
+      ...actionStatus(action)
     }))
   ];
   return `<div class="compact-action-list">
     ${options.map(option => {
       const selected = state.botTurn.action === option.id;
-      return `<button class="compact-action ${selected ? "selected" : ""}" onclick="updateBotTurn('action', '${option.id}')">
+      const blocked = option.tone === "blocked";
+      return `<button class="compact-action ${selected ? "selected" : ""} ${option.tone || ""}" ${blocked ? "disabled" : `onclick="updateBotTurn('action', '${option.id}')"`}>
         <span>${esc(option.title)}</span>
-        ${selected ? badge("Selected", "ready") : ""}
+        ${selected ? badge("Selected", "ready") : badge(option.label || "Candidate", option.tone || "ready")}
       </button>`;
     }).join("")}
   </div>`;
@@ -2307,12 +2446,15 @@ function botSpecialTableHtml() {
       ${selected ? badge(selected.range + ": " + selected.title, "check") : badge("Roll if Special", "warn")}
     </div>
     ${selected ? `<div class="info-band"><strong>${esc(selected.title)}:</strong>${listHtml(selected.actions)}</div>` : ""}
-    <div class="action-card-grid">
-      ${(botSpecialTables[state.activeFaction] || []).map(row => `<article class="mini-rule">
-        <div class="action-choice-head"><span>${esc(row.range)} ${esc(row.title)}</span></div>
-        ${listHtml(row.actions)}
-      </article>`).join("")}
-    </div>
+    <details class="compact-details">
+      <summary>Full Special Action table</summary>
+      <div class="action-card-grid">
+        ${(botSpecialTables[state.activeFaction] || []).map(row => `<article class="mini-rule">
+          <div class="action-choice-head"><span>${esc(row.range)} ${esc(row.title)}</span></div>
+          ${listHtml(row.actions)}
+        </article>`).join("")}
+      </div>
+    </details>
   </div>`;
 }
 
@@ -2387,6 +2529,153 @@ function botRunnerHtml() {
   `;
 }
 
+function pageHeaderHtml(kicker, title, subtitle = "") {
+  return `<div class="turn-page-head">
+    <div>
+      <div class="kicker">${esc(kicker)}</div>
+      <h2>${esc(title)}</h2>
+      ${subtitle ? `<p class="muted">${esc(subtitle)}</p>` : ""}
+    </div>
+  </div>`;
+}
+
+function boardSummaryLineHtml() {
+  const board = state.boardState;
+  return `<div class="board-summary-line">
+    <span>Progress ${board.progress}</span>
+    <span>Reaction ${board.reaction}</span>
+    <span>${esc(board.economy.replace("_", " "))}</span>
+    <span>Unity ${esc(board.unity)}</span>
+    <span>${board.generalStrikeActive ? "Strike active" : "No strike"}</span>
+  </div>`;
+}
+
+function humanActionSelectionPageHtml(slot) {
+  const actionNumber = slot + 1;
+  return `
+    ${pageHeaderHtml(`Action ${actionNumber}`, `Choose ${activeFaction().short} Action ${actionNumber}`, "Tap an available candidate, then confirm it for this action slot.")}
+    ${boardSummaryLineHtml()}
+    <div class="walk-block mobile-action-picker always-show">
+      <div class="field-label">Available actions</div>
+      ${compactActionPickerHtml()}
+    </div>
+    ${selectedActionDetailHtml()}
+    <details class="compact-details">
+      <summary>Global Action limits</summary>
+      ${listHtml(globalActionLimits)}
+    </details>
+  `;
+}
+
+function humanActionSubpageHtml() {
+  if (state.actionSubpage === "choice") {
+    return `
+      ${pageHeaderHtml("Faction turn", `${activeFaction().short}: choose turn option`, "This choice determines the next page of the turn.")}
+      <div class="walk-block">
+        ${optionsHtml(actionChoices, "actionChoice")}
+      </div>
+    `;
+  }
+  if (state.actionSubpage === "event") {
+    return `
+      ${pageHeaderHtml("Event", "Resolve the Event card", "Complete the card text, then continue to the next part of this faction turn.")}
+      ${humanEventPromptHtml()}
+    `;
+  }
+  if (state.actionSubpage === "action1") return humanActionSelectionPageHtml(0);
+  if (state.actionSubpage === "action2") return humanActionSelectionPageHtml(1);
+  if (state.actionSubpage === "election") {
+    return `
+      ${pageHeaderHtml("Election check", "Was an Election card played?", "This answer controls whether the sequence branches to Elections after all faction turns.")}
+      <div class="walk-block">${yesNoHtml("electionPlayed", "Election card played", "No Election card")}</div>
+    `;
+  }
+  return `${pageHeaderHtml("Faction complete", `${activeFaction().short} turn complete`, "Continue to the next faction in turn order.")}`;
+}
+
+function botCardCuesHtml() {
+  return `<details class="compact-details">
+    <summary>Bot card cues</summary>
+    <div class="walk-block">
+      <div class="field-label">Faction Order from bot card</div>
+      <input class="text-input" value="${esc(state.botTurn.factionOrder)}" oninput="updateBotTurn('factionOrder', this.value)" placeholder="e.g. KPD, Coalition, RC">
+    </div>
+    <div class="walk-block">
+      <div class="field-label">Impulse Space / Region</div>
+      <input class="text-input" value="${esc(state.botTurn.impulse)}" oninput="updateBotTurn('impulse', this.value)" placeholder="Space, Region, or RC Clique letter">
+    </div>
+  </details>`;
+}
+
+function botActionResolutionPageHtml(slot) {
+  const actionNumber = slot + 1;
+  const priorities = botActionPriorities[state.activeFaction] || [];
+  return `
+    ${pageHeaderHtml(`Bot Action ${actionNumber}`, `${activeFaction().short}: choose legal bot Action`, "Use the first priority that has legal effect. For Action 2, continue from the next priority.")}
+    ${boardSummaryLineHtml()}
+    <div class="walk-block">
+      <div class="field-label">Bot Action priority</div>
+      <div class="priority-row">${priorities.map((item, index) => `<span><strong>${index + 1}</strong> ${esc(item)}</span>`).join("")}</div>
+    </div>
+    <div class="walk-block">
+      <div class="field-label">Available bot actions</div>
+      ${botActionPickerHtml()}
+      ${botSelectedActionDetailHtml()}
+    </div>
+    <details class="compact-details">
+      <summary>Bot targeting and option priorities</summary>
+      <div class="walk-block">
+        <div class="field-label">Faction option preferences</div>
+        ${listHtml(botOptionGuidelines[state.activeFaction] || [])}
+      </div>
+      <div class="grid2 walk-block">
+        <div>
+          <div class="field-label">Affected piece priority</div>
+          ${listHtml(botPiecePriority)}
+        </div>
+        <div>
+          <div class="field-label">Space selection priority</div>
+          ${listHtml(botSpacePriority)}
+        </div>
+      </div>
+    </details>
+  `;
+}
+
+function botActionSubpageHtml() {
+  if (state.actionSubpage === "bot_summary") {
+    return `
+      ${pageHeaderHtml("Bot turn", `${activeFaction().short}: reveal bot card`, "Choose the printed Action Step Summary. Other card cues are optional notes.")}
+      <div class="walk-block">
+        <div class="field-label">Bot card selected</div>
+        <input class="text-input" value="${esc(state.botTurn.card)}" oninput="updateBotTurn('card', this.value)" placeholder="Bot card number/name">
+      </div>
+      <div class="walk-block">
+        <div class="field-label">Action Step Summary</div>
+        ${botSetSummaryHtml()}
+      </div>
+      ${botCardCuesHtml()}
+      <details class="compact-details">
+        <summary>Bot turn reminders</summary>
+        <div class="note-list compact">
+          <div class="note-item">If Event + 2 Bot Actions: reveal the top Event card from the bot stack and resolve it first.</div>
+          <div class="note-item">NP factions do not perform Move Units Actions, never loan units, always accept loaned units, and never spend Middle Class Sympathies during Assaults.</div>
+          <div class="note-item">At the end of the bot turn, apply any Reshuffle Bot Deck instruction on the revealed bot card.</div>
+        </div>
+      </details>
+    `;
+  }
+  if (state.actionSubpage === "bot_action1") return botActionResolutionPageHtml(0);
+  if (state.actionSubpage === "bot_action2") return botActionResolutionPageHtml(1);
+  if (state.actionSubpage === "bot_election") {
+    return `
+      ${pageHeaderHtml("Bot election check", "Did the bot play an Election card?", "Leave this as No unless the bot event revealed an Election card.")}
+      <div class="walk-block">${yesNoHtml("electionPlayed", "Election card played", "No Election card")}</div>
+    `;
+  }
+  return `${pageHeaderHtml("Bot complete", `${activeFaction().short} bot turn complete`, "Continue to the next faction in turn order.")}`;
+}
+
 function actionControlsHtml() {
   if (state.actionPage === "setup") {
     return `
@@ -2411,28 +2700,12 @@ function actionControlsHtml() {
   if (isActiveBot()) {
     return `
       ${runnerTop}
-      ${botRunnerHtml()}
-      <div class="walk-block">
-        <div class="field-label">Was an Election card played?</div>
-        ${yesNoHtml("electionPlayed", "Election card played", "No Election card")}
-      </div>
+      ${botActionSubpageHtml()}
     `;
   }
   return `
     ${runnerTop}
-    <div class="walk-block">
-      <div class="field-label">Are you playing an Event, taking Actions, or passing?</div>
-      ${optionsHtml(actionChoices, "actionChoice")}
-    </div>
-    ${humanEventPromptHtml()}
-    <div class="walk-block">
-      <div class="field-label">Faction action guide</div>
-      ${actionGuideHtml()}
-    </div>
-    <div class="walk-block">
-      <div class="field-label">Was an Election card played?</div>
-      ${yesNoHtml("electionPlayed", "Election card played", "No Election card")}
-    </div>
+    ${humanActionSubpageHtml()}
   `;
 }
 
@@ -2859,6 +3132,7 @@ window.jumpToSequencePhase = jumpToSequencePhase;
 window.setActionContext = setActionContext;
 window.selectAction = selectAction;
 window.setActionSlot = setActionSlot;
+window.chooseActionForSlot = chooseActionForSlot;
 window.setController = setController;
 window.completeSoloSetup = completeSoloSetup;
 window.editSoloSetup = editSoloSetup;
