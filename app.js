@@ -1,6 +1,6 @@
 const APP_NAME = "The Weimar Republic Companion";
-const APP_BUILD = "phase-4-faction-actions";
-const LOCAL_SAVE_KEY = "wr-companion-state-v4";
+const APP_BUILD = "phase-5-question-runner";
+const LOCAL_SAVE_KEY = "wr-companion-state-v5";
 
 const sources = [
   {
@@ -85,6 +85,7 @@ const factions = {
 };
 
 const years = Array.from({ length: 15 }, (_, index) => 1919 + index);
+const factionIds = Object.keys(factions);
 
 const implementationBacklog = [
   {
@@ -901,6 +902,9 @@ const state = {
   currentSource: "rulebook",
   year: 1919,
   round: 1,
+  momentumFaction: "coalition",
+  turnOrder: ["coalition", "kpd", "nsdap", "radical_conservatives"],
+  activeTurnIndex: 0,
   activeFaction: "coalition",
   eventTitle: "",
   currentStep: "event",
@@ -922,6 +926,7 @@ const state = {
     radical_conservatives: "bot"
   },
   botTurn: {
+    card: "",
     summary: "",
     factionOrder: "",
     impulse: "",
@@ -970,7 +975,17 @@ function normalizeState() {
   if (!years.includes(Number(state.year))) state.year = 1919;
   state.year = Number(state.year);
   state.round = state.round === 2 ? 2 : 1;
+  if (!factions[state.momentumFaction]) state.momentumFaction = "coalition";
+  if (!Array.isArray(state.turnOrder)) state.turnOrder = [...factionIds];
+  const cleanOrder = state.turnOrder.filter(id => factions[id]);
+  for (const id of factionIds) {
+    if (!cleanOrder.includes(id)) cleanOrder.push(id);
+  }
+  state.turnOrder = cleanOrder.slice(0, factionIds.length);
+  if (!Number.isInteger(state.activeTurnIndex)) state.activeTurnIndex = 0;
+  if (state.activeTurnIndex < 0 || state.activeTurnIndex >= state.turnOrder.length) state.activeTurnIndex = 0;
   if (!factions[state.selectedFaction]) state.selectedFaction = "coalition";
+  state.activeFaction = state.turnOrder[state.activeTurnIndex] || state.activeFaction;
   if (!factions[state.activeFaction]) state.activeFaction = "coalition";
   if (!sources.some(source => source.id === state.currentSource)) state.currentSource = "rulebook";
   if (!state.sequenceAnswers || typeof state.sequenceAnswers !== "object") state.sequenceAnswers = {};
@@ -995,6 +1010,7 @@ function normalizeState() {
   };
   if (!state.botTurn || typeof state.botTurn !== "object") state.botTurn = {};
   state.botTurn = {
+    card: "",
     summary: "",
     factionOrder: "",
     impulse: "",
@@ -1089,11 +1105,41 @@ function setFaction(factionId) {
 function setActiveFaction(factionId) {
   if (!factions[factionId]) return;
   state.activeFaction = factionId;
+  const index = state.turnOrder.indexOf(factionId);
+  if (index >= 0) state.activeTurnIndex = index;
   state.actionPlan = ["", ""];
   state.selectedActionId = "";
   state.actionContext = {};
-  state.botTurn = { summary: "", factionOrder: "", impulse: "", specialDie: "" };
+  state.botTurn = { card: "", summary: "", factionOrder: "", impulse: "", specialDie: "" };
   render();
+}
+
+function setMomentumFaction(factionId) {
+  if (!factions[factionId]) return;
+  state.momentumFaction = factionId;
+  render();
+}
+
+function setTurnOrderSlot(slot, factionId) {
+  const index = Number(slot);
+  if (!factions[factionId] || index < 0 || index >= factionIds.length) return;
+  const order = [...state.turnOrder];
+  const existingIndex = order.indexOf(factionId);
+  if (existingIndex >= 0) {
+    const displaced = order[index];
+    order[existingIndex] = displaced;
+  }
+  order[index] = factionId;
+  state.turnOrder = order;
+  state.activeFaction = state.turnOrder[state.activeTurnIndex] || state.activeFaction;
+  render();
+}
+
+function setActiveTurnIndex(index) {
+  const parsed = Number(index);
+  if (parsed < 0 || parsed >= state.turnOrder.length) return;
+  state.activeTurnIndex = parsed;
+  setActiveFaction(state.turnOrder[parsed]);
 }
 
 function setSource(sourceId) {
@@ -1105,12 +1151,16 @@ function setYear(year) {
   const parsed = Number(year);
   if (!years.includes(parsed)) return;
   state.year = parsed;
+  state.activeTurnIndex = 0;
+  state.activeFaction = state.turnOrder[0] || "coalition";
   resetSequenceForNextAction();
   render();
 }
 
 function setRound(round) {
   state.round = round === 2 ? 2 : 1;
+  state.activeTurnIndex = 0;
+  state.activeFaction = state.turnOrder[0] || "coalition";
   resetSequenceForNextAction();
   render();
 }
@@ -1139,12 +1189,26 @@ function updateSaveLoadText(value) {
   state.saveLoadText = value;
 }
 
+function resetCurrentFactionPrompts() {
+  state.sequenceAnswers.actionChoice = "";
+  state.actionPlan = ["", ""];
+  state.selectedActionId = "";
+  state.actionContext = {};
+  state.eventTitle = "";
+  state.botTurn = { card: "", summary: "", factionOrder: "", impulse: "", specialDie: "" };
+  clearSequenceChecks("bot:");
+}
+
 function setSequenceAnswer(key, value) {
   state.sequenceAnswers[key] = value;
-  if (key === "actionChoice" && value === "pass") {
-    state.sequenceAnswers.electionPlayed = "no";
+  if (key === "actionChoice") {
     state.actionPlan = ["", ""];
     state.selectedActionId = "";
+    if (value === "pass" || value === "one_action") {
+      state.sequenceAnswers.electionPlayed = "no";
+    } else {
+      state.sequenceAnswers.electionPlayed = "";
+    }
   }
   if (key === "electionPlayed" && value === "no") {
     state.sequenceAnswers.generalElectionOutcome = "";
@@ -1183,13 +1247,16 @@ function setController(factionId, controller) {
   state.controllers[factionId] = controller === "bot" ? "bot" : "human";
   state.actionPlan = ["", ""];
   state.selectedActionId = "";
-  state.botTurn = { summary: "", factionOrder: "", impulse: "", specialDie: "" };
+  state.botTurn = { card: "", summary: "", factionOrder: "", impulse: "", specialDie: "" };
   render();
 }
 
 function updateBotTurn(key, value) {
-  if (!["summary", "factionOrder", "impulse", "specialDie"].includes(key)) return;
+  if (!["card", "summary", "factionOrder", "impulse", "specialDie"].includes(key)) return;
   state.botTurn[key] = value;
+  if (key === "summary") {
+    state.sequenceAnswers.electionPlayed = value === "one_action" ? "no" : "";
+  }
   render();
 }
 
@@ -1205,10 +1272,9 @@ function resetSequenceForNextAction() {
   state.sequenceAnswers.suddenVictory = "";
   state.sequenceAnswers.generalElectionOutcome = "";
   state.sequenceAnswers.timelineFlip = "";
-  state.actionPlan = ["", ""];
-  state.selectedActionId = "";
-  state.actionContext = {};
-  state.botTurn = { summary: "", factionOrder: "", impulse: "", specialDie: "" };
+  state.activeTurnIndex = 0;
+  state.activeFaction = state.turnOrder[0] || "coalition";
+  resetCurrentFactionPrompts();
   state.completedSequence = [];
 }
 
@@ -1222,6 +1288,13 @@ function continueSequence() {
   markSequenceComplete(phase.id);
 
   if (phase.id === "action") {
+    if (state.activeTurnIndex < state.turnOrder.length - 1) {
+      state.activeTurnIndex += 1;
+      state.activeFaction = state.turnOrder[state.activeTurnIndex];
+      resetCurrentFactionPrompts();
+      render();
+      return;
+    }
     setSequencePhase("sudden_victory");
     render();
     return;
@@ -1398,6 +1471,9 @@ function resetApp() {
   state.currentSource = "rulebook";
   state.year = 1919;
   state.round = 1;
+  state.momentumFaction = "coalition";
+  state.turnOrder = ["coalition", "kpd", "nsdap", "radical_conservatives"];
+  state.activeTurnIndex = 0;
   state.activeFaction = "coalition";
   state.eventTitle = "";
   state.currentStep = "event";
@@ -1419,6 +1495,7 @@ function resetApp() {
     radical_conservatives: "bot"
   };
   state.botTurn = {
+    card: "",
     summary: "",
     factionOrder: "",
     impulse: "",
@@ -1457,6 +1534,65 @@ function timelineHtml() {
   return `<div class="timeline">
     ${years.map(year => `<button class="year ${state.year === year ? "selected" : ""}" onclick="setYear(${year})">${year}</button>`).join("")}
   </div>`;
+}
+
+function factionOptionsHtml(selectedId) {
+  return factionIds.map(id => `<option value="${id}" ${selectedId === id ? "selected" : ""}>${esc(factions[id].short)}</option>`).join("");
+}
+
+function momentumButtonsHtml() {
+  return `<div class="grid4">
+    ${factionIds.map(id => btn(factions[id].short, `setMomentumFaction('${id}')`, state.momentumFaction === id ? "primary" : "")).join("")}
+  </div>`;
+}
+
+function turnOrderSetupHtml() {
+  return `<div class="turn-order-grid">
+    ${state.turnOrder.map((id, index) => {
+      const active = index === state.activeTurnIndex;
+      const complete = index < state.activeTurnIndex;
+      return `<div class="turn-order-item ${active ? "active" : ""} ${complete ? "complete" : ""}">
+        <div class="turn-order-label">${index + 1}</div>
+        <select class="select-input" onchange="setTurnOrderSlot(${index}, this.value)">
+          ${factionOptionsHtml(id)}
+        </select>
+        <button class="mini-btn" onclick="setActiveTurnIndex(${index})">${active ? "Acting" : "Set active"}</button>
+      </div>`;
+    }).join("")}
+  </div>`;
+}
+
+function turnQuestionStackHtml() {
+  const active = activeFaction();
+  const momentum = factions[state.momentumFaction] || factions.coalition;
+  return `
+    <div class="question-stack">
+      <div class="question-card">
+        <div class="field-label">1. What year is it?</div>
+        ${timelineHtml()}
+      </div>
+      <div class="question-card">
+        <div class="field-label">2. Early or Late Year?</div>
+        <div class="round-controls">
+          ${btn("Early Year", "setRound(1)", state.round === 1 ? "primary" : "")}
+          ${btn("Late Year", "setRound(2)", state.round === 2 ? "primary" : "")}
+        </div>
+      </div>
+      <div class="question-card">
+        <div class="field-label">3. Who has Momentum?</div>
+        ${momentumButtonsHtml()}
+        <p class="small-note">Current Momentum: ${esc(momentum.short)}.</p>
+      </div>
+      <div class="question-card">
+        <div class="field-label">4. What is the turn order?</div>
+        ${turnOrderSetupHtml()}
+      </div>
+      <div class="question-card">
+        <div class="field-label">5. Who is acting now?</div>
+        <div class="info-band"><strong>${esc(active.short)}</strong> is faction ${state.activeTurnIndex + 1} of ${state.turnOrder.length} in the Action Step.</div>
+      </div>
+    </div>
+  `;
 }
 
 function stepChecklistHtml() {
@@ -1546,8 +1682,18 @@ function continueButtonHtml(label = "Continue") {
 function canContinueSequence() {
   const phase = currentSequencePhase();
   if (phase.id === "action") {
-    if (isActiveBot()) return !!state.botTurn.summary;
+    if (isActiveBot()) {
+      if (!state.botTurn.card || !state.botTurn.summary || !state.botTurn.factionOrder || !state.botTurn.impulse) return false;
+      if (state.botTurn.summary === "event_two_actions" && !state.sequenceAnswers.electionPlayed) return false;
+      return true;
+    }
     if (!state.sequenceAnswers.actionChoice) return false;
+    if (
+      (state.sequenceAnswers.actionChoice === "event_then_actions" || state.sequenceAnswers.actionChoice === "actions_then_event") &&
+      !state.sequenceAnswers.electionPlayed
+    ) {
+      return false;
+    }
     if (state.sequenceAnswers.actionChoice === "pass") return true;
     return requiredActionSlots().every((_, index) => {
       const action = findAction(state.actionPlan[index]);
@@ -1697,6 +1843,23 @@ function actionGuideHtml() {
   `;
 }
 
+function humanEventPromptHtml() {
+  if (state.sequenceAnswers.actionChoice === "event_then_actions" || state.sequenceAnswers.actionChoice === "actions_then_event") {
+    const timing = state.sequenceAnswers.actionChoice === "event_then_actions" ? "before your two Actions" : "after your two Actions";
+    return `
+      <div class="walk-block">
+        <div class="field-label">Event card</div>
+        <input class="text-input" value="${esc(state.eventTitle)}" oninput="updateEventTitle(this.value)" placeholder="Event card title or short note">
+        <div class="info-band">You chose to play the Event ${esc(timing)}. Resolve the card completely before moving to the next operation.</div>
+      </div>
+    `;
+  }
+  if (state.sequenceAnswers.actionChoice === "pass") {
+    return `<div class="info-band">Pass: you may discard one non-Election, non-Mandatory Event card, then draw one replacement if the deck is not empty.</div>`;
+  }
+  return "";
+}
+
 function controllerControlsHtml() {
   return `<div class="controller-grid">
     ${Object.entries(factions).map(([id, faction]) => {
@@ -1779,6 +1942,10 @@ function botRunnerHtml() {
     </div>
     <div class="info-band"><strong>${esc(active.short)} is bot-controlled.</strong> Reveal its top bot card, then enter the card cues below.</div>
     <div class="walk-block">
+      <div class="field-label">Bot card selected</div>
+      <input class="text-input" value="${esc(state.botTurn.card)}" oninput="updateBotTurn('card', this.value)" placeholder="Bot card number/name">
+    </div>
+    <div class="walk-block">
       <div class="field-label">Action Step Summary</div>
       ${botSetSummaryHtml()}
     </div>
@@ -1799,6 +1966,15 @@ function botRunnerHtml() {
         <div class="note-item">If Event + 2 Bot Actions: reveal the top Event card from the bot stack and resolve it first. In 1923, 1929, or 1933, check unplayed bot Events for Mandatory/Election cards first.</div>
         <div class="note-item">NP factions do not perform Move Units Actions, never loan units, always accept loaned units, and never spend Middle Class Sympathies during Assaults.</div>
         <div class="note-item">At the end of the bot turn, apply any Reshuffle Bot Deck instruction on the revealed bot card.</div>
+      </div>
+    </div>
+    <div class="walk-block">
+      <div class="field-label">Resolve bot steps</div>
+      <div class="check-list">
+        ${state.botTurn.summary === "event_two_actions" ? checkItemHtml("bot:event", "Event card revealed and resolved") : ""}
+        ${checkItemHtml("bot:action1", "First Bot Action resolved")}
+        ${state.botTurn.summary === "event_two_actions" ? checkItemHtml("bot:action2", "Second Bot Action resolved") : ""}
+        ${checkItemHtml("bot:reshuffle", "Reshuffle instruction checked")}
       </div>
     </div>
     <div class="walk-block">
@@ -1831,6 +2007,7 @@ function actionControlsHtml() {
   const active = activeFaction();
   if (isActiveBot()) {
     return `
+      ${turnQuestionStackHtml()}
       <div class="walk-block">
         <div class="field-label">Active faction</div>
         <div class="grid4">${activeFactionButtonsHtml()}</div>
@@ -1844,6 +2021,7 @@ function actionControlsHtml() {
     `;
   }
   return `
+    ${turnQuestionStackHtml()}
     <div class="walk-block">
       <div class="field-label">Active faction</div>
       <div class="grid4">${activeFactionButtonsHtml()}</div>
@@ -1854,16 +2032,15 @@ function actionControlsHtml() {
       ${controllerControlsHtml()}
     </div>
     <div class="walk-block">
-      <div class="field-label">Choose the faction's turn option</div>
+      <div class="field-label">Are you playing an Event, taking Actions, or passing?</div>
       ${optionsHtml(actionChoices, "actionChoice")}
     </div>
+    ${humanEventPromptHtml()}
     <div class="walk-block">
       <div class="field-label">Faction action guide</div>
       ${actionGuideHtml()}
     </div>
     <div class="walk-block">
-      <div class="field-label">Card / event reminder</div>
-      <input class="text-input" value="${esc(state.eventTitle)}" oninput="updateEventTitle(this.value)" placeholder="Optional card title, event, or rules reminder">
       <div class="field-label">Was an Election card played?</div>
       ${yesNoHtml("electionPlayed", "Election card played", "No Election card")}
     </div>
@@ -2275,6 +2452,9 @@ window.back = back;
 window.setScreen = setScreen;
 window.setFaction = setFaction;
 window.setActiveFaction = setActiveFaction;
+window.setMomentumFaction = setMomentumFaction;
+window.setTurnOrderSlot = setTurnOrderSlot;
+window.setActiveTurnIndex = setActiveTurnIndex;
 window.setSource = setSource;
 window.setYear = setYear;
 window.setRound = setRound;
