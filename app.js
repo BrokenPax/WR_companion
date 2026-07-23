@@ -1,6 +1,6 @@
 const APP_NAME = "The Weimar Republic Companion";
-const APP_BUILD = "phase-5-question-runner";
-const LOCAL_SAVE_KEY = "wr-companion-state-v5";
+const APP_BUILD = "phase-6-persistent-board";
+const LOCAL_SAVE_KEY = "wr-companion-state-v6";
 
 const sources = [
   {
@@ -274,12 +274,12 @@ const globalActionLimits = [
 ];
 
 const actionStateQuestions = {
-  general_strike_clear: "General Strike marker is not on the Timeline",
-  coalition_influence_allowed: "Economy allows Coalition Influence placement",
-  unity_sound_strong: "Coalition Unity is Sound or Strong",
-  yellow_leverage_above_progress: "Yellow Leverage is above current Progress",
-  black_leverage_above_reaction: "Black Leverage is above current Reaction",
-  reaction_can_advance: "Reaction is not already more than one above Progress",
+  general_strike_clear: "General Strike must be Not active",
+  coalition_influence_allowed: "Economy must allow Coalition Influence placement",
+  unity_sound_strong: "Coalition Unity must be Sound or Strong",
+  yellow_leverage_above_progress: "Yellow Leverage must be above current Progress",
+  black_leverage_above_reaction: "Black Leverage must be above current Reaction",
+  reaction_can_advance: "Reaction must not already be more than one above Progress",
   coalition_mcs_available: "Coalition has / can move a Middle Class Sympathies pawn",
   strike_available: "There is an eligible Strike marker",
   kpd_cadre_available: "KPD has an available Cadre",
@@ -919,6 +919,17 @@ const state = {
   actionPlan: ["", ""],
   selectedActionId: "",
   actionContext: {},
+  soloSetupComplete: false,
+  boardState: {
+    progress: 0,
+    reaction: 0,
+    economy: "stable",
+    unity: "sound",
+    generalStrikeActive: false,
+    yellowProgressLeverage: "unknown",
+    blackReactionLeverage: "unknown",
+    notes: ""
+  },
   controllers: {
     coalition: "human",
     kpd: "bot",
@@ -1001,6 +1012,18 @@ function normalizeState() {
   state.actionPlan = [state.actionPlan[0] || "", state.actionPlan[1] || ""];
   if (typeof state.selectedActionId !== "string") state.selectedActionId = "";
   if (!state.actionContext || typeof state.actionContext !== "object") state.actionContext = {};
+  state.soloSetupComplete = !!state.soloSetupComplete;
+  if (!state.boardState || typeof state.boardState !== "object") state.boardState = {};
+  state.boardState = {
+    progress: Number.isFinite(Number(state.boardState.progress)) ? Number(state.boardState.progress) : 0,
+    reaction: Number.isFinite(Number(state.boardState.reaction)) ? Number(state.boardState.reaction) : 0,
+    economy: state.boardState.economy || "stable",
+    unity: state.boardState.unity || "sound",
+    generalStrikeActive: !!state.boardState.generalStrikeActive,
+    yellowProgressLeverage: state.boardState.yellowProgressLeverage || "unknown",
+    blackReactionLeverage: state.boardState.blackReactionLeverage || "unknown",
+    notes: state.boardState.notes || ""
+  };
   if (!state.controllers || typeof state.controllers !== "object") state.controllers = {};
   state.controllers = {
     coalition: state.controllers.coalition === "bot" ? "bot" : "human",
@@ -1189,11 +1212,33 @@ function updateSaveLoadText(value) {
   state.saveLoadText = value;
 }
 
+function completeSoloSetup() {
+  state.soloSetupComplete = true;
+  render();
+}
+
+function editSoloSetup() {
+  state.soloSetupComplete = false;
+  render();
+}
+
+function setBoardState(key, value) {
+  if (!Object.prototype.hasOwnProperty.call(state.boardState, key)) return;
+  if (key === "progress" || key === "reaction") {
+    const parsed = Number(value);
+    state.boardState[key] = Number.isFinite(parsed) ? Math.max(0, Math.min(6, parsed)) : 0;
+  } else if (key === "generalStrikeActive") {
+    state.boardState[key] = value === true || value === "true";
+  } else {
+    state.boardState[key] = value;
+  }
+  render();
+}
+
 function resetCurrentFactionPrompts() {
   state.sequenceAnswers.actionChoice = "";
   state.actionPlan = ["", ""];
   state.selectedActionId = "";
-  state.actionContext = {};
   state.eventTitle = "";
   state.botTurn = { card: "", summary: "", factionOrder: "", impulse: "", specialDie: "" };
   clearSequenceChecks("bot:");
@@ -1283,11 +1328,39 @@ function endWithResult(title, body) {
   setScreen("result");
 }
 
+function shiftUnityRight() {
+  const order = ["fragile", "shaky", "sound", "strong"];
+  const index = order.indexOf(state.boardState.unity);
+  state.boardState.unity = order[Math.min(order.length - 1, Math.max(0, index) + 1)];
+}
+
+function applyHumanActionMemoryUpdates() {
+  if (isActiveBot()) return;
+  for (const actionId of state.actionPlan) {
+    if (!actionId) continue;
+    if (actionId === "gain_momentum") {
+      state.momentumFaction = state.activeFaction;
+    }
+    if (actionId === "advance_progress") {
+      state.boardState.progress = Math.min(6, Number(state.boardState.progress) + 1);
+      state.boardState.yellowProgressLeverage = "unknown";
+    }
+    if (actionId === "advance_reaction") {
+      state.boardState.reaction = Math.min(6, Number(state.boardState.reaction) + 1);
+      state.boardState.blackReactionLeverage = "unknown";
+    }
+    if (actionId === "increase_unity") {
+      shiftUnityRight();
+    }
+  }
+}
+
 function continueSequence() {
   const phase = currentSequencePhase();
   markSequenceComplete(phase.id);
 
   if (phase.id === "action") {
+    applyHumanActionMemoryUpdates();
     if (state.activeTurnIndex < state.turnOrder.length - 1) {
       state.activeTurnIndex += 1;
       state.activeFaction = state.turnOrder[state.activeTurnIndex];
@@ -1488,6 +1561,17 @@ function resetApp() {
   state.actionPlan = ["", ""];
   state.selectedActionId = "";
   state.actionContext = {};
+  state.soloSetupComplete = false;
+  state.boardState = {
+    progress: 0,
+    reaction: 0,
+    economy: "stable",
+    unity: "sound",
+    generalStrikeActive: false,
+    yellowProgressLeverage: "unknown",
+    blackReactionLeverage: "unknown",
+    notes: ""
+  };
   state.controllers = {
     coalition: "human",
     kpd: "bot",
@@ -1736,10 +1820,29 @@ function requiredActionSlots() {
   return [];
 }
 
+function derivedContextValue(key) {
+  const board = state.boardState;
+  if (key === "general_strike_clear") return !board.generalStrikeActive;
+  if (key === "coalition_influence_allowed") {
+    return !["hyper_3", "hyper_2", "hyper_1"].includes(board.economy);
+  }
+  if (key === "unity_sound_strong") return board.unity === "sound" || board.unity === "strong";
+  if (key === "yellow_leverage_above_progress") {
+    if (board.yellowProgressLeverage === "unknown") return undefined;
+    return board.yellowProgressLeverage === "above";
+  }
+  if (key === "black_leverage_above_reaction") {
+    if (board.blackReactionLeverage === "unknown") return undefined;
+    return board.blackReactionLeverage === "above";
+  }
+  if (key === "reaction_can_advance") return board.reaction <= board.progress;
+  return state.actionContext[key];
+}
+
 function actionStatus(action) {
   const contextKeys = action.context || [];
-  const blocked = contextKeys.filter(key => state.actionContext[key] === false);
-  const unknown = contextKeys.filter(key => state.actionContext[key] === undefined);
+  const blocked = contextKeys.filter(key => derivedContextValue(key) === false);
+  const unknown = contextKeys.filter(key => derivedContextValue(key) === undefined);
   if (blocked.length) return { tone: "blocked", label: "Blocked", blocked, unknown };
   if (unknown.length) return { tone: "check", label: "Check table", blocked, unknown };
   return { tone: "ready", label: "Candidate", blocked, unknown };
@@ -1771,6 +1874,80 @@ function actionContextControlsHtml() {
       </div>`;
     }).join("")}
   </div>`;
+}
+
+function boardStateControlsHtml() {
+  const board = state.boardState;
+  const progressOptions = Array.from({ length: 7 }, (_, value) => `<option value="${value}" ${board.progress === value ? "selected" : ""}>${value}</option>`).join("");
+  const reactionOptions = Array.from({ length: 7 }, (_, value) => `<option value="${value}" ${board.reaction === value ? "selected" : ""}>${value}</option>`).join("");
+  return `<div class="board-state-grid">
+    <div class="context-item">
+      <div class="context-label">Progress level</div>
+      <select class="select-input" onchange="setBoardState('progress', this.value)">${progressOptions}</select>
+    </div>
+    <div class="context-item">
+      <div class="context-label">Reaction level</div>
+      <select class="select-input" onchange="setBoardState('reaction', this.value)">${reactionOptions}</select>
+    </div>
+    <div class="context-item">
+      <div class="context-label">Economy marker</div>
+      <select class="select-input" onchange="setBoardState('economy', this.value)">
+        <option value="hyper_3" ${board.economy === "hyper_3" ? "selected" : ""}>Far left / Hyperinflation</option>
+        <option value="hyper_2" ${board.economy === "hyper_2" ? "selected" : ""}>Left 2</option>
+        <option value="hyper_1" ${board.economy === "hyper_1" ? "selected" : ""}>Left 1</option>
+        <option value="stable" ${board.economy === "stable" ? "selected" : ""}>Stable</option>
+        <option value="mass_1" ${board.economy === "mass_1" ? "selected" : ""}>Right 1</option>
+        <option value="mass_2" ${board.economy === "mass_2" ? "selected" : ""}>Right 2</option>
+        <option value="mass_3" ${board.economy === "mass_3" ? "selected" : ""}>Far right / Mass Unemployment</option>
+      </select>
+    </div>
+    <div class="context-item">
+      <div class="context-label">Coalition Unity</div>
+      <select class="select-input" onchange="setBoardState('unity', this.value)">
+        <option value="fragile" ${board.unity === "fragile" ? "selected" : ""}>Fragile</option>
+        <option value="shaky" ${board.unity === "shaky" ? "selected" : ""}>Shaky</option>
+        <option value="sound" ${board.unity === "sound" ? "selected" : ""}>Sound</option>
+        <option value="strong" ${board.unity === "strong" ? "selected" : ""}>Strong</option>
+      </select>
+    </div>
+    <div class="context-item">
+      <div class="context-label">General Strike</div>
+      <div class="segmented two">
+        <button class="${board.generalStrikeActive ? "selected danger" : ""}" onclick="setBoardState('generalStrikeActive', true)">Active</button>
+        <button class="${!board.generalStrikeActive ? "selected" : ""}" onclick="setBoardState('generalStrikeActive', false)">Not active</button>
+      </div>
+    </div>
+    <div class="context-item">
+      <div class="context-label">Yellow Leverage above Progress?</div>
+      <select class="select-input" onchange="setBoardState('yellowProgressLeverage', this.value)">
+        <option value="unknown" ${board.yellowProgressLeverage === "unknown" ? "selected" : ""}>Unknown</option>
+        <option value="above" ${board.yellowProgressLeverage === "above" ? "selected" : ""}>Yes, above current Progress</option>
+        <option value="none" ${board.yellowProgressLeverage === "none" ? "selected" : ""}>No</option>
+      </select>
+    </div>
+    <div class="context-item">
+      <div class="context-label">Black Leverage above Reaction?</div>
+      <select class="select-input" onchange="setBoardState('blackReactionLeverage', this.value)">
+        <option value="unknown" ${board.blackReactionLeverage === "unknown" ? "selected" : ""}>Unknown</option>
+        <option value="above" ${board.blackReactionLeverage === "above" ? "selected" : ""}>Yes, above current Reaction</option>
+        <option value="none" ${board.blackReactionLeverage === "none" ? "selected" : ""}>No</option>
+      </select>
+    </div>
+    <div class="context-item wide">
+      <div class="context-label">Board notes</div>
+      <input class="text-input compact-input" value="${esc(board.notes)}" oninput="setBoardState('notes', this.value)" placeholder="Optional notes: available units, key map spaces, odd lingering effects">
+    </div>
+  </div>`;
+}
+
+function boardStateCompactHtml() {
+  const board = state.boardState;
+  return `<details class="compact-details board-memory">
+    <summary>Update remembered board state</summary>
+    <div class="small-note">Stored in this browser save and reused for action checks. Track-only changes can be updated automatically by some human Actions.</div>
+    ${boardStateControlsHtml()}
+    <div class="small-note">Current: Progress ${board.progress}, Reaction ${board.reaction}, Economy ${esc(board.economy)}, Unity ${esc(board.unity)}, General Strike ${board.generalStrikeActive ? "active" : "not active"}.</div>
+  </details>`;
 }
 
 function actionCardsHtml() {
@@ -1863,8 +2040,8 @@ function actionGuideHtml() {
       <p class="small-note">Select an action card, then assign it to Action 1 or Action 2. Repeating an action is allowed unless a global limit blocks the specific target, such as two Assaults in the same space.</p>
     </div>
     <div class="walk-block">
-      <div class="field-label">Table-state filters</div>
-      ${actionContextControlsHtml()}
+      <div class="field-label">Current board state</div>
+      ${boardStateControlsHtml()}
     </div>
     <div class="walk-block mobile-action-picker">
       <div class="field-label">Choose action</div>
@@ -1912,6 +2089,23 @@ function controllerControlsHtml() {
       </div>`;
     }).join("")}
   </div>`;
+}
+
+function soloSetupPanelHtml() {
+  if (state.soloSetupComplete) return "";
+  return `<section class="panel setup-panel">
+    <div class="section-head">
+      <div>
+        <div class="kicker">Solo Setup</div>
+        <h2>Who are you playing?</h2>
+        <p class="muted">Set each faction once. After you confirm, this setup panel disappears from the turn runner.</p>
+      </div>
+    </div>
+    ${controllerControlsHtml()}
+    <div class="sequence-actions">
+      ${btn("Confirm solo setup", "completeSoloSetup()", "primary")}
+    </div>
+  </section>`;
 }
 
 function botSetSummaryHtml() {
@@ -1975,10 +2169,6 @@ function botRunnerHtml() {
   const priorities = botActionPriorities[state.activeFaction] || [];
   const actionCount = state.botTurn.summary === "event_two_actions" ? "two Bot Actions after the Event" : state.botTurn.summary === "one_action" ? "one Bot Action" : "the bot card's listed Action Step Summary";
   return `
-    <div class="walk-block">
-      <div class="field-label">Solo controllers</div>
-      ${controllerControlsHtml()}
-    </div>
     <div class="info-band"><strong>${esc(active.short)} is bot-controlled.</strong> Reveal its top bot card, then enter the card cues below.</div>
     <div class="walk-block">
       <div class="field-label">Bot card selected</div>
@@ -2051,6 +2241,7 @@ function actionControlsHtml() {
     return `
       ${turnContextSummaryHtml()}
       ${turnSetupControlsHtml()}
+      ${boardStateCompactHtml()}
       <div class="walk-block">
         <div class="field-label">Active faction</div>
         <div class="grid4">${activeFactionButtonsHtml()}</div>
@@ -2066,14 +2257,11 @@ function actionControlsHtml() {
   return `
     ${turnContextSummaryHtml()}
     ${turnSetupControlsHtml()}
+    ${boardStateCompactHtml()}
     <div class="walk-block">
       <div class="field-label">Active faction</div>
       <div class="grid4">${activeFactionButtonsHtml()}</div>
       <p class="small-note">Current active faction: ${esc(active.label)}</p>
-    </div>
-    <div class="walk-block">
-      <div class="field-label">Solo controllers</div>
-      ${controllerControlsHtml()}
     </div>
     <div class="walk-block">
       <div class="field-label">Are you playing an Event, taking Actions, or passing?</div>
@@ -2241,6 +2429,8 @@ function renderDashboard(app) {
       </div>
       ${badge(APP_BUILD, "dark")}
     </section>
+
+    ${soloSetupPanelHtml()}
 
     <section class="panel">
       <div class="section-head">
@@ -2512,6 +2702,9 @@ window.setActionContext = setActionContext;
 window.selectAction = selectAction;
 window.setActionSlot = setActionSlot;
 window.setController = setController;
+window.completeSoloSetup = completeSoloSetup;
+window.editSoloSetup = editSoloSetup;
+window.setBoardState = setBoardState;
 window.updateBotTurn = updateBotTurn;
 window.updateEventTitle = updateEventTitle;
 window.updateNotes = updateNotes;
