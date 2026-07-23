@@ -909,6 +909,8 @@ const state = {
   eventTitle: "",
   currentStep: "event",
   sequenceStepIndex: 0,
+  actionPage: "setup",
+  previousActionPage: "turn",
   sequenceAnswers: {
     actionChoice: "",
     electionPlayed: "",
@@ -1000,6 +1002,8 @@ function normalizeState() {
   if (!factions[state.activeFaction]) state.activeFaction = "coalition";
   if (!sources.some(source => source.id === state.currentSource)) state.currentSource = "rulebook";
   if (!state.sequenceAnswers || typeof state.sequenceAnswers !== "object") state.sequenceAnswers = {};
+  if (!["setup", "turn", "board"].includes(state.actionPage)) state.actionPage = "setup";
+  if (!["setup", "turn", "board"].includes(state.previousActionPage)) state.previousActionPage = "turn";
   state.sequenceAnswers = {
     actionChoice: "",
     electionPlayed: "",
@@ -1235,6 +1239,23 @@ function setBoardState(key, value) {
   render();
 }
 
+function setActionPage(page) {
+  if (!["setup", "turn", "board"].includes(page)) return;
+  if (page === "board") state.previousActionPage = state.actionPage === "board" ? "turn" : state.actionPage;
+  state.actionPage = page;
+  render();
+}
+
+function saveTurnSetup() {
+  state.actionPage = "turn";
+  render();
+}
+
+function saveBoardStatePage() {
+  state.actionPage = state.previousActionPage || "turn";
+  render();
+}
+
 function resetCurrentFactionPrompts() {
   state.sequenceAnswers.actionChoice = "";
   state.actionPlan = ["", ""];
@@ -1312,6 +1333,8 @@ function toggleSequenceCheck(key) {
 
 function resetSequenceForNextAction() {
   state.sequenceStepIndex = 0;
+  state.actionPage = "setup";
+  state.previousActionPage = "turn";
   state.sequenceAnswers.actionChoice = "";
   state.sequenceAnswers.electionPlayed = "";
   state.sequenceAnswers.suddenVictory = "";
@@ -1360,15 +1383,26 @@ function continueSequence() {
   markSequenceComplete(phase.id);
 
   if (phase.id === "action") {
+    if (state.actionPage === "setup") {
+      state.actionPage = "turn";
+      render();
+      return;
+    }
+    if (state.actionPage === "board") {
+      saveBoardStatePage();
+      return;
+    }
     applyHumanActionMemoryUpdates();
     if (state.activeTurnIndex < state.turnOrder.length - 1) {
       state.activeTurnIndex += 1;
       state.activeFaction = state.turnOrder[state.activeTurnIndex];
       resetCurrentFactionPrompts();
+      state.actionPage = "turn";
       render();
       return;
     }
     setSequencePhase("sudden_victory");
+    state.actionPage = "setup";
     render();
     return;
   }
@@ -1551,6 +1585,8 @@ function resetApp() {
   state.eventTitle = "";
   state.currentStep = "event";
   state.sequenceStepIndex = 0;
+  state.actionPage = "setup";
+  state.previousActionPage = "turn";
   state.sequenceAnswers = {
     actionChoice: "",
     electionPlayed: "",
@@ -1693,13 +1729,12 @@ function turnContextSummaryHtml() {
 }
 
 function turnSetupControlsHtml() {
-  return `
-    <div class="desktop-setup">${turnQuestionStackHtml()}</div>
-    <details class="mobile-setup">
-      <summary>Adjust year, Momentum, and turn order</summary>
-      ${turnQuestionStackHtml()}
-    </details>
-  `;
+  return `<div class="runner-page">
+    ${turnQuestionStackHtml()}
+    <div class="sequence-actions">
+      ${btn("Save setup and start turns", "saveTurnSetup()", "primary")}
+    </div>
+  </div>`;
 }
 
 function stepChecklistHtml() {
@@ -1736,9 +1771,10 @@ function sequenceProgressHtml() {
     ${sequencePhases.map((phase, index) => {
       const active = index === state.sequenceStepIndex;
       const done = state.completedSequence.includes(phase.id);
-      return `<button class="phase-dot ${active ? "active" : ""} ${done ? "done" : ""}" onclick="jumpToSequencePhase('${phase.id}')" title="${esc(phase.title)}">
+      return `<div class="phase-dot ${active ? "active" : ""} ${done ? "done" : ""}" title="${esc(phase.title)}">
         <span>${index + 1}</span>
-      </button>`;
+        <small>${esc(phase.title.replace(" Step", "").replace(" Check", ""))}</small>
+      </div>`;
     }).join("")}
   </div>`;
 }
@@ -1786,9 +1822,29 @@ function continueButtonHtml(label = "Continue") {
   return `<button class="btn primary" ${disabled ? "disabled" : "onclick=\"continueSequence()\""}>${esc(label)}</button>`;
 }
 
+function continueHelpHtml() {
+  const phase = currentSequencePhase();
+  if (phase.id !== "action" || state.actionPage !== "turn" || canContinueSequence()) return "";
+  if (isActiveBot()) {
+    const missing = [];
+    if (!state.botTurn.card) missing.push("bot card");
+    if (!state.botTurn.summary) missing.push("Action Step Summary");
+    if (!state.botTurn.factionOrder) missing.push("Faction Order");
+    if (!state.botTurn.impulse) missing.push("Impulse Space/Region");
+    if (state.botTurn.summary === "event_two_actions" && !state.sequenceAnswers.electionPlayed) missing.push("Election card answer");
+    return `<div class="small-note blocked-note">Finish: ${esc(missing.join(", "))}.</div>`;
+  }
+  if (!state.sequenceAnswers.actionChoice) return `<div class="small-note blocked-note">Choose whether this faction takes Actions, plays an Event, or passes.</div>`;
+  if ((state.sequenceAnswers.actionChoice === "event_then_actions" || state.sequenceAnswers.actionChoice === "actions_then_event") && !state.sequenceAnswers.electionPlayed) {
+    return `<div class="small-note blocked-note">Answer whether an Election card was played.</div>`;
+  }
+  return `<div class="small-note blocked-note">Choose and assign the required Action slot before continuing.</div>`;
+}
+
 function canContinueSequence() {
   const phase = currentSequencePhase();
   if (phase.id === "action") {
+    if (state.actionPage === "setup" || state.actionPage === "board") return true;
     if (isActiveBot()) {
       if (!state.botTurn.card || !state.botTurn.summary || !state.botTurn.factionOrder || !state.botTurn.impulse) return false;
       if (state.botTurn.summary === "event_two_actions" && !state.sequenceAnswers.electionPlayed) return false;
@@ -1942,12 +1998,20 @@ function boardStateControlsHtml() {
 
 function boardStateCompactHtml() {
   const board = state.boardState;
-  return `<details class="compact-details board-memory">
-    <summary>Update remembered board state</summary>
-    <div class="small-note">Stored in this browser save and reused for action checks. Track-only changes can be updated automatically by some human Actions.</div>
+  return `<div class="runner-page">
+    <div class="section-head">
+      <div>
+        <div class="kicker">Board State</div>
+        <h2>Update remembered board state</h2>
+        <p class="muted">Stored in this browser save and reused for action checks. Track-only changes can be updated automatically by some human Actions.</p>
+      </div>
+    </div>
     ${boardStateControlsHtml()}
     <div class="small-note">Current: Progress ${board.progress}, Reaction ${board.reaction}, Economy ${esc(board.economy)}, Unity ${esc(board.unity)}, General Strike ${board.generalStrikeActive ? "active" : "not active"}.</div>
-  </details>`;
+    <div class="sequence-actions">
+      ${btn("Save board state", "saveBoardStatePage()", "primary")}
+    </div>
+  </div>`;
 }
 
 function actionCardsHtml() {
@@ -2238,11 +2302,28 @@ function botRunnerHtml() {
 
 function actionControlsHtml() {
   const active = activeFaction();
-  if (isActiveBot()) {
+  if (state.actionPage === "setup") {
     return `
       ${turnContextSummaryHtml()}
       ${turnSetupControlsHtml()}
+    `;
+  }
+  if (state.actionPage === "board") {
+    return `
+      ${turnContextSummaryHtml()}
       ${boardStateCompactHtml()}
+    `;
+  }
+  const runnerTop = `
+    ${turnContextSummaryHtml()}
+    <div class="runner-toolbar">
+      ${btn("Edit setup", "setActionPage('setup')")}
+      ${btn("Board state", "setActionPage('board')")}
+    </div>
+  `;
+  if (isActiveBot()) {
+    return `
+      ${runnerTop}
       <div class="walk-block">
         <div class="field-label">Active faction</div>
         <div class="grid4">${activeFactionButtonsHtml()}</div>
@@ -2256,9 +2337,7 @@ function actionControlsHtml() {
     `;
   }
   return `
-    ${turnContextSummaryHtml()}
-    ${turnSetupControlsHtml()}
-    ${boardStateCompactHtml()}
+    ${runnerTop}
     <div class="walk-block">
       <div class="field-label">Active faction</div>
       <div class="grid4">${activeFactionButtonsHtml()}</div>
@@ -2472,6 +2551,7 @@ function renderDashboard(app) {
       </div>
       <div class="sequence-actions">
         ${continueButtonHtml()}
+        ${continueHelpHtml()}
       </div>
       <div class="small-note">Source: ${esc(phase.source)}. This walkthrough models the Turn Aid sequence; exact action legality and faction-specific victory requirements still need rulebook/player-aid extraction.</div>
     </section>
@@ -2706,6 +2786,9 @@ window.setController = setController;
 window.completeSoloSetup = completeSoloSetup;
 window.editSoloSetup = editSoloSetup;
 window.setBoardState = setBoardState;
+window.setActionPage = setActionPage;
+window.saveTurnSetup = saveTurnSetup;
+window.saveBoardStatePage = saveBoardStatePage;
 window.updateBotTurn = updateBotTurn;
 window.updateEventTitle = updateEventTitle;
 window.updateNotes = updateNotes;

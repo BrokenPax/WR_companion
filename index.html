@@ -73,10 +73,15 @@ textarea{width:100%;min-height:150px;border:1px solid var(--line);border-radius:
 .step-main{display:flex;align-items:center;gap:10px;border:0;background:transparent;color:var(--ink);font:inherit;font-weight:850;text-align:left}
 .mini-btn{min-height:34px;padding:6px 10px}
 .progress-strip{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;margin:12px 0 16px}
-.phase-dot{min-height:34px;border:1px solid var(--line);border-radius:8px;background:white;color:var(--muted);font:inherit;font-weight:900}
+.phase-dot{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:42px;border:1px solid var(--line);border-radius:8px;background:white;color:var(--muted);font:inherit;font-weight:900;text-align:center}
+.phase-dot small{font-size:10px;line-height:1.05;font-weight:800}
 .phase-dot.active{background:var(--blue);border-color:var(--blue);color:white}
 .phase-dot.done{background:#dceee7;border-color:#b6d7c9;color:#1f584b}
 .walk-block{margin-top:14px}
+.runner-page{display:grid;gap:12px}
+.runner-toolbar{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}
+.runner-toolbar .btn{min-height:38px;padding:8px 10px;text-align:center}
+.blocked-note{color:#7f1d1d}
 .field-label{font-size:12px;font-weight:900;letter-spacing:.06em;text-transform:uppercase;color:var(--red);margin-bottom:8px}
 .question-stack{display:grid;gap:10px;margin:14px 0}
 .mobile-turn-summary{position:sticky;top:57px;z-index:7;display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid var(--line);border-radius:8px;background:rgba(255,253,248,.96);backdrop-filter:blur(8px);padding:10px 12px;box-shadow:0 5px 16px rgba(29,36,48,.12)}
@@ -178,10 +183,7 @@ textarea{width:100%;min-height:150px;border:1px solid var(--line);border-radius:
   .topin{padding:9px 12px}
   .title{font-size:12px}
   .mobile-turn-summary{top:47px;margin-bottom:10px}
-  .desktop-setup,.desktop-action-menu{display:none}
-  .mobile-setup{display:block;border:1px solid var(--line);border-radius:8px;background:#fffaf0;padding:0 12px;margin-bottom:10px}
-  .mobile-setup[open]{padding-bottom:12px}
-  .mobile-setup .question-stack{margin:0;gap:8px}
+  .desktop-action-menu{display:none}
   .mobile-action-picker{display:block}
   .compact-action .badge{font-size:11px;min-height:22px;padding:3px 7px}
   .walk-block{margin-top:10px}
@@ -190,14 +192,14 @@ textarea{width:100%;min-height:150px;border:1px solid var(--line);border-radius:
   .action-detail{padding:12px;margin-top:10px}
   .rule-list{font-size:13px}
   .note-item{padding:10px}
-  .progress-strip{margin:8px 0 12px;gap:6px}
-  .phase-dot{min-height:30px}
+  .progress-strip{grid-template-columns:repeat(4,minmax(0,1fr));margin:8px 0 12px;gap:6px}
+  .phase-dot{min-height:34px}
+  .phase-dot small{display:none}
   .grid2,.grid4,.faction-tabs{grid-template-columns:1fr}
   .sticky-actions{grid-template-columns:repeat(4,minmax(0,1fr));bottom:6px}
   .sticky-actions .btn{font-size:12px;padding:7px 6px;min-height:36px}
   .option-grid,.action-slots,.context-grid,.action-card-grid,.board-state-grid,.controller-grid,.priority-row,.slot-actions,.turn-order-grid{grid-template-columns:1fr}
   .timeline{grid-template-columns:repeat(3,minmax(0,1fr))}
-  .progress-strip{grid-template-columns:repeat(4,minmax(0,1fr))}
   .section-head{display:block}
   .badge-stack{justify-content:flex-start;margin-top:10px}
   .link-btn{margin-top:10px;width:100%}
