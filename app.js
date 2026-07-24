@@ -1,5 +1,5 @@
 const APP_NAME = "The Weimar Republic Companion";
-const APP_BUILD = "phase-11-economy-bot-status";
+const APP_BUILD = "phase-12-economy-grid";
 const LOCAL_SAVE_KEY = "wr-companion-state-v6";
 
 const sources = [

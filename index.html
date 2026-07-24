@@ -159,9 +159,9 @@ textarea{width:100%;min-height:150px;border:1px solid var(--line);border-radius:
 .segmented button.danger{background:var(--red);border-color:var(--red)}
 .segmented button.muted-choice{background:#e6dece;border-color:#d0c4b1;color:var(--ink)}
 .track-strip{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}
-.track-strip button{border:1px solid var(--line);border-radius:8px;background:white;min-height:42px;font:inherit;font-size:12px;font-weight:900;color:var(--ink)}
+.track-strip button{border:1px solid var(--line);border-radius:8px;background:white;min-height:42px;padding:6px 3px;font:inherit;font-size:12px;font-weight:900;color:var(--ink)}
 .economy-track{grid-template-columns:repeat(9,minmax(0,1fr))}
-.economy-track button{font-size:11px;overflow-wrap:anywhere}
+.economy-track button{min-height:54px;font-size:10px;line-height:1.05;overflow-wrap:anywhere;hyphens:auto}
 .track-strip button.selected{background:var(--blue);border-color:var(--blue);color:white}
 .track-captions{display:flex;justify-content:space-between;gap:12px;color:var(--muted);font-size:11px;font-weight:800;margin-top:6px}
 .action-choice{display:flex;flex-direction:column;gap:8px;min-height:118px;border:1px solid var(--line);border-radius:8px;background:#fffaf0;color:var(--ink);padding:12px;text-align:left;font:inherit}
@@ -247,7 +247,8 @@ textarea{width:100%;min-height:150px;border:1px solid var(--line);border-radius:
   .bot-card-preview img{width:78px}
   .bot-step-strip{grid-template-columns:repeat(2,minmax(0,1fr))}
   .track-strip{grid-template-columns:repeat(7,minmax(42px,1fr));overflow:auto}
-  .economy-track{grid-template-columns:repeat(9,minmax(58px,1fr))}
+  .economy-track{grid-template-columns:repeat(9,minmax(0,1fr));overflow:visible}
+  .economy-track button{font-size:9px;padding:5px 1px}
   .turn-rail{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
   .turn-rail-item{padding:7px}
   .turn-rail-item .turn-order-label{width:24px;height:24px;font-size:12px}
@@ -268,6 +269,6 @@ textarea{width:100%;min-height:150px;border:1px solid var(--line);border-radius:
   </div></div>
   <main class="wrap" id="app"></main>
 </div>
-<script src="app.js"></script>
+<script src="app.js?v=phase-12-economy-grid"></script>
 </body>
 </html>
