@@ -1,5 +1,5 @@
 const APP_NAME = "The Weimar Republic Companion";
-const APP_BUILD = "phase-10-bot-card-lookup";
+const APP_BUILD = "phase-11-economy-bot-status";
 const LOCAL_SAVE_KEY = "wr-companion-state-v6";
 
 const sources = [
@@ -290,6 +290,22 @@ const actionStateQuestions = {
   unit_available: "A matching unit is available",
   sudden_victory_marker_available: "The faction's Sudden Victory marker is available"
 };
+
+const economyOptions = [
+  ["hyperinflation", "Hyperinflation"],
+  ["hyper_3", "Left 3"],
+  ["hyper_2", "Left 2"],
+  ["hyper_1", "Left 1"],
+  ["stable", "Stable"],
+  ["mass_1", "Right 1"],
+  ["mass_2", "Right 2"],
+  ["mass_3", "Right 3"],
+  ["mass_unemployment", "Mass Unemployment"]
+];
+
+function economyLabel(value) {
+  return economyOptions.find(([id]) => id === value)?.[1] || value;
+}
 
 const commonActions = {
   assault: {
@@ -2134,7 +2150,7 @@ function derivedContextValue(key) {
   const board = state.boardState;
   if (key === "general_strike_clear") return !board.generalStrikeActive;
   if (key === "coalition_influence_allowed") {
-    return !["hyper_3", "hyper_2", "hyper_1"].includes(board.economy);
+    return !["hyperinflation", "hyper_3", "hyper_2", "hyper_1"].includes(board.economy);
   }
   if (key === "unity_sound_strong") return board.unity === "sound" || board.unity === "strong";
   if (key === "yellow_leverage_above_progress") {
@@ -2190,15 +2206,6 @@ function boardStateControlsHtml() {
   const board = state.boardState;
   const progressOptions = Array.from({ length: 7 }, (_, value) => `<option value="${value}" ${board.progress === value ? "selected" : ""}>${value}</option>`).join("");
   const reactionOptions = Array.from({ length: 7 }, (_, value) => `<option value="${value}" ${board.reaction === value ? "selected" : ""}>${value}</option>`).join("");
-  const economyOptions = [
-    ["hyper_3", "Left 3"],
-    ["hyper_2", "Left 2"],
-    ["hyper_1", "Left 1"],
-    ["stable", "Stable"],
-    ["mass_1", "Right 1"],
-    ["mass_2", "Right 2"],
-    ["mass_3", "Right 3"]
-  ];
   return `<div class="board-state-grid">
     <div class="context-item">
       <div class="context-label">Progress level</div>
@@ -2265,7 +2272,7 @@ function boardStateCompactHtml() {
       </div>
     </div>
     ${boardStateControlsHtml()}
-    <div class="small-note">Current: Progress ${board.progress}, Reaction ${board.reaction}, Economy ${esc(board.economy)}, Unity ${esc(board.unity)}, General Strike ${board.generalStrikeActive ? "active" : "not active"}.</div>
+    <div class="small-note">Current: Progress ${board.progress}, Reaction ${board.reaction}, Economy ${esc(economyLabel(board.economy))}, Unity ${esc(board.unity)}, General Strike ${board.generalStrikeActive ? "active" : "not active"}.</div>
     <div class="sequence-actions">
       ${btn("Save board state", "saveBoardStatePage()", "primary")}
     </div>
@@ -2573,22 +2580,27 @@ function botCardPickerHtml() {
   </div>`;
 }
 
+function botSubpageOrder(subpage) {
+  return ["bot_summary", "bot_action1", "bot_action2", "bot_election", "done"].indexOf(subpage);
+}
+
 function botStepState(step) {
   const subpage = state.actionSubpage;
+  const subpageOrder = botSubpageOrder(subpage);
   if (step === "event") {
     if (state.botTurn.summary !== "event_two_actions") return "skip";
     return subpage !== "bot_summary" ? "done" : "current";
   }
   if (step === "action1") {
-    if (state.sequenceChecks["bot:action1"]) return "done";
+    if (state.sequenceChecks["bot:action1"] || subpageOrder > botSubpageOrder("bot_action1")) return "done";
     if (subpage === "bot_action1") return "current";
-    return state.botTurn.actions[0] ? "done" : "pending";
+    return "pending";
   }
   if (step === "action2") {
     if (state.botTurn.summary !== "event_two_actions") return "skip";
-    if (state.sequenceChecks["bot:action2"]) return "done";
+    if (state.sequenceChecks["bot:action2"] || subpageOrder > botSubpageOrder("bot_action2")) return "done";
     if (subpage === "bot_action2") return "current";
-    return state.botTurn.actions[1] ? "done" : "pending";
+    return "pending";
   }
   if (step === "reshuffle") {
     return ["bot_election", "done"].includes(subpage) ? "current" : "pending";
@@ -2811,7 +2823,7 @@ function boardSummaryLineHtml() {
   return `<div class="board-summary-line">
     <span>Progress ${board.progress}</span>
     <span>Reaction ${board.reaction}</span>
-    <span>${esc(board.economy.replace("_", " "))}</span>
+    <span>${esc(economyLabel(board.economy))}</span>
     <span>Unity ${esc(board.unity)}</span>
     <span>${board.generalStrikeActive ? "Strike active" : "No strike"}</span>
   </div>`;
