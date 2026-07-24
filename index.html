@@ -14,7 +14,7 @@ body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;bac
 .app{width:100%;max-width:430px;margin:0 auto;min-height:100vh;padding-bottom:26px}
 .top{position:sticky;top:0;z-index:10;background:rgba(246,242,234,.94);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
 .topin{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px}
-.iconbtn{border:1px solid transparent;background:transparent;color:var(--ink);font-size:20px;padding:8px 10px;border-radius:8px}
+.iconbtn{border:1px solid var(--line);background:white;color:var(--ink);font-size:12px;font-weight:900;padding:8px 10px;border-radius:8px}
 .title{font-size:14px;font-weight:850;letter-spacing:.02em;text-transform:uppercase}
 .wrap{padding:16px}
 .hero,.panel,.card{background:var(--card);border:1px solid var(--line);border-radius:8px;box-shadow:0 2px 12px rgba(29,36,48,.08)}
@@ -263,12 +263,12 @@ textarea{width:100%;min-height:150px;border:1px solid var(--line);border-radius:
 <body>
 <div class="app">
   <div class="top"><div class="topin">
-    <button class="iconbtn" id="backBtn" aria-label="Back">&lt;</button>
+    <button class="iconbtn" id="backBtn" aria-label="Back">Back</button>
     <div class="title">The Weimar Republic Companion</div>
-    <button class="iconbtn" id="resetBtn" aria-label="Reset">R</button>
+    <button class="iconbtn" id="resetBtn" aria-label="Reset">Reset</button>
   </div></div>
   <main class="wrap" id="app"></main>
 </div>
-<script src="app.js?v=phase-12-economy-grid"></script>
+<script src="app.js?v=phase-13-autosave-scenarios"></script>
 </body>
 </html>

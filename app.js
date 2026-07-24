@@ -1,6 +1,7 @@
 const APP_NAME = "The Weimar Republic Companion";
-const APP_BUILD = "phase-12-economy-grid";
+const APP_BUILD = "phase-13-autosave-scenarios";
 const LOCAL_SAVE_KEY = "wr-companion-state-v6";
+const AUTO_SAVE_DELAY_MS = 350;
 
 const sources = [
   {
@@ -280,6 +281,8 @@ const actionStateQuestions = {
   yellow_leverage_above_progress: "Yellow Leverage must be above current Progress",
   black_leverage_above_reaction: "Black Leverage must be above current Reaction",
   reaction_can_advance: "Reaction must not already be more than one above Progress",
+  kpd_stance_in_play: "KPD Stance track must be in play",
+  nsdap_stance_in_play: "NSDAP Stance track must be in play",
   coalition_mcs_available: "Coalition has / can move a Middle Class Sympathies pawn",
   strike_available: "There is an eligible Strike marker",
   kpd_cadre_available: "KPD has an available Cadre",
@@ -305,6 +308,127 @@ const economyOptions = [
 
 function economyLabel(value) {
   return economyOptions.find(([id]) => id === value)?.[1] || value;
+}
+
+const stanceOptions = [
+  ["not_in_play", "Not in play"],
+  ["revolutionary", "Revolutionary"],
+  ["left_revolutionary", "1 left of Revolutionary"],
+  ["pragmatic", "Pragmatic"],
+  ["democratic", "Democratic"]
+];
+
+function stanceLabel(value) {
+  return stanceOptions.find(([id]) => id === value)?.[1] || value;
+}
+
+const scenarios = [
+  {
+    id: "tutorial_1921",
+    title: "Tutorial Scenario",
+    years: "1921-1923",
+    rounds: 6,
+    length: "1-2 hours",
+    source: "Playbook 9.2, pages 2-3",
+    start: { year: 1921, round: 1, momentumFaction: "coalition", economy: "hyper_2", progress: 2, reaction: 3, unity: "sound", usDeals: 1, ussrDeals: 2, kpdStance: "not_in_play", nsdapStance: "not_in_play", reactionLimitIgnored: true },
+    special: ["Ignore Event card Requires requirements.", "KPD and NSDAP Stance tracks are not in play; treat both as Pragmatic for Events.", "Reaction is not limited by Progress."],
+    victory: ["If no Sudden Victory or General Election Victory by Late Year 1923, immediately hold Regional Elections and then a General Election.", "The General Election winner wins."],
+    setup: [
+      "Crisis deck prepared; each faction draws 5 Event cards.",
+      "Article 48: Coalition. Reichstag Seats: Uncontrolled and set aside until the next General Election. All Parliamentary Control cards: Coalition.",
+      "Economy: 2 boxes left of Stable toward Hyperinflation, with 2 Middle Class Sympathies, one in each box.",
+      "Progress 2 / Reaction 3: yellow Leverage boxes 2-3; black Leverage boxes 2-3; Middle Class Sympathies boxes 3-5; Reforms boxes 2-5; Assassinations box 2; NSDAP Cadre box 4; Conservative Clique box 5.",
+      "U.S. Deals 1: yellow Leverage boxes 2-5; Dollar Dependence boxes 3-5.",
+      "U.S.S.R. Deals 2: Reichswehr boxes 1, 3, and 5; KPD Cadres boxes 4-5; black Leverage box 3; yellow Leverage box 4.",
+      "Faction mats and map: use Playbook Graphic Guide A; Coalition marker in all Parliamentary Control boxes; set aside faction PV markers."
+    ]
+  },
+  {
+    id: "revolution_1919",
+    title: "A Time for Revolution?",
+    years: "1919-1923",
+    rounds: 10,
+    length: "1.5-2 hours",
+    source: "Playbook 9.3, pages 4-6",
+    start: { year: 1919, round: 1, momentumFaction: "coalition", economy: "stable", progress: 1, reaction: 2, unity: "sound", usDeals: 1, ussrDeals: 1, kpdStance: "left_revolutionary", nsdapStance: "revolutionary", reactionLimitIgnored: true },
+    special: ["Reaction is not limited by Progress.", "The Momentum faction may call one Extra Election with an Available Parliamentary Control card or Reichstag Seats card."],
+    victory: ["If no Sudden Victory or General Election Victory by Late Year 1923, immediately hold Regional Elections and then a General Election.", "Apply the scenario final-election PV modifiers before determining the winner."],
+    setup: [
+      "Crisis deck prepared; each faction draws 7 Event cards.",
+      "Article 48: Coalition. Reichstag Seats: Uncontrolled and set aside until the next General Election. All Parliamentary Control cards: Coalition.",
+      "Economy: Stable, with 2 Middle Class Sympathies, one in each box.",
+      "Progress 1 / Reaction 2: no yellow Leverage; black Leverage box 2; Middle Class Sympathies boxes 2-5; Reforms boxes 2-5; Assassinations box 2; NSDAP Cadres boxes 3-4; Conservative Clique box 5.",
+      "U.S. Deals 1: yellow Leverage boxes 1-5; Dollar Dependence boxes 3-5.",
+      "U.S.S.R. Deals 1: Reichswehr boxes 1, 3, and 5; yellow Leverage boxes 2 and 4; KPD Cadres boxes 2, 4, and 5; black Leverage box 3.",
+      "Faction mats and map: use Playbook Graphic Guide B; shuffle Freikorps and set Coalition Freikorps unrevealed; Coalition marker in all Parliamentary Control boxes; set aside faction PV markers."
+    ]
+  },
+  {
+    id: "new_hope_1924",
+    title: "A New Hope",
+    years: "1924-1933",
+    rounds: 20,
+    length: "4-6 hours",
+    source: "Playbook 9.4, pages 7-8",
+    start: { year: 1924, round: 1, momentumFaction: "coalition", economy: "stable", progress: 2, reaction: 3, unity: "strong", usDeals: 2, ussrDeals: 2, kpdStance: "pragmatic", nsdapStance: "pragmatic", reactionLimitIgnored: false },
+    special: [],
+    victory: ["If no Sudden Victory, General Election Victory, or Event Card Victory by Late Year 1933, check Coalition Held Cards Penalty.", "If Coalition had any Held Cards Penalty in the last round, hold elections; otherwise Coalition wins."],
+    setup: [
+      "Remove Crisis Era cards. Set aside Decline Era cards until 1930. Prepare Golden Twenties deck; each faction draws 9 Event cards.",
+      "Article 48: Coalition. Reichstag Seats: Radical Conservatives. All Parliamentary Control cards: Coalition.",
+      "Economy: Stable, with 2 Middle Class Sympathies, one in each box.",
+      "Progress 2 / Reaction 3: yellow Leverage boxes 2-3; black Leverage boxes 2-3; Middle Class Sympathies boxes 4-5; Reforms boxes 2-5; Assassinations box 2; NSDAP Cadre box 4; Conservative Clique box 5.",
+      "U.S. Deals 2: yellow Leverage boxes 3-5; Dollar Dependence boxes 3-5.",
+      "U.S.S.R. Deals 2: Reichswehr boxes 3 and 5; yellow Leverage boxes 2 and 4; black Leverage box 3; KPD Cadres boxes 4-5.",
+      "Faction mats and map: use Playbook Graphic Guide C; reveal Coalition Freikorps, remove 3 revealed Rogue Freikorps and 3 loyal Freikorps, put remaining revealed Rogue Freikorps on RC mat; Coalition marker in all Parliamentary Control boxes."
+    ]
+  },
+  {
+    id: "black_sun_1928",
+    title: "Black Sun Rising",
+    years: "1928-1933",
+    rounds: 12,
+    length: "2-3 hours",
+    source: "Playbook 9.5, pages 9-11",
+    start: { year: 1928, round: 1, momentumFaction: "coalition", economy: "stable", progress: 4, reaction: 3, unity: "sound", usDeals: 4, ussrDeals: 4, kpdStance: "not_in_play", nsdapStance: "not_in_play", reactionLimitIgnored: true },
+    special: ["KPD and NSDAP Stance tracks are not in play; treat both as Pragmatic for Events.", "Reaction is not limited by Progress."],
+    victory: ["If no Sudden Victory, General Election Victory, or Event Card Victory by Late Year 1933, check Coalition Held Cards Penalty.", "If Coalition had any Held Cards Penalty in the last round, hold elections; otherwise Coalition wins."],
+    setup: [
+      "Remove all Crisis Era cards and Golden Twenties Election cards. Set aside Decline Era cards until 1930.",
+      "Lingering Events #54 Gustav Stresemann and #57 Paul von Hindenburg start in effect. Randomly draw 3 other Golden Twenties Lingering Events to start in effect.",
+      "Each faction draws 3 Event cards.",
+      "Article 48: Coalition. Reichstag Seats: Radical Conservatives. Koeln Parliamentary Control: Uncontrolled until the next Regional Election in Koeln. Other Parliamentary Control cards: Coalition.",
+      "Economy: Stable, with 2 Middle Class Sympathies and 2 Dollar Dependence markers, one each in the two leftmost boxes.",
+      "Progress 4 / Reaction 3: yellow Leverage boxes 2-4; black Leverage boxes 2-3; Middle Class Sympathies boxes 4-5; Reforms boxes 2-5; Assassinations box 2; NSDAP Cadres boxes 3-4; Conservative Clique box 5.",
+      "U.S. Deals 4: yellow Leverage boxes 4-5; Dollar Dependence box 5.",
+      "U.S.S.R. Deals 4: Reichswehr box 5; yellow Leverage box 4; KPD Cadres boxes 4-5.",
+      "Faction mats and map: use Playbook Graphic Guide D; reveal Coalition Freikorps, remove 3 revealed Rogue Freikorps and 3 loyal Freikorps, put remaining revealed Rogue Freikorps on RC mat; leave Koeln Parliamentary Control empty."
+    ]
+  },
+  {
+    id: "fate_1919",
+    title: "The Fate of the Republic",
+    years: "1919-1933",
+    rounds: 30,
+    length: "5-8 hours",
+    source: "Playbook 9.6, pages 12-13",
+    start: { year: 1919, round: 1, momentumFaction: "coalition", economy: "stable", progress: 1, reaction: 2, unity: "sound", usDeals: 1, ussrDeals: 1, kpdStance: "left_revolutionary", nsdapStance: "revolutionary", reactionLimitIgnored: false },
+    special: [],
+    victory: ["If no Sudden Victory, General Election Victory, or Event Card Victory by Late Year 1933, check Coalition Held Cards Penalty.", "If Coalition had any Held Cards Penalty in the last round, hold elections; otherwise Coalition wins."],
+    setup: [
+      "Set aside Golden Twenties and Decline Era cards until 1924 and 1930. Prepare Crisis deck; each faction draws 7 Event cards.",
+      "Article 48: Coalition. Reichstag Seats: Uncontrolled and set aside until the next General Election. All remaining Parliamentary Control cards: Coalition.",
+      "Economy: Stable, with 2 Middle Class Sympathies, one in each box.",
+      "Progress 1 / Reaction 2: no yellow Leverage; black Leverage box 2; Middle Class Sympathies boxes 2-5; Reforms boxes 2-5; Assassinations box 2; NSDAP Cadres boxes 3-4; Conservative Clique box 5.",
+      "U.S. Deals 1: yellow Leverage boxes 1-5; Dollar Dependence boxes 3-5.",
+      "U.S.S.R. Deals 1: Reichswehr boxes 1, 3, and 5; yellow Leverage boxes 2 and 4; black Leverage boxes 1 and 3; KPD Cadres boxes 2, 4, and 5.",
+      "Faction mats and map: use Playbook Graphic Guide E; shuffle Freikorps and set Coalition Freikorps unrevealed; Coalition marker in all Parliamentary Control boxes; set aside faction PV markers."
+    ]
+  }
+];
+
+function currentScenario() {
+  return scenarios.find(scenario => scenario.id === state.scenarioId) || null;
 }
 
 const commonActions = {
@@ -451,6 +575,7 @@ const factionActions = {
       title: "Change Stance",
       citation: "6.4",
       summary: "Shift KPD Stance one box in either direction.",
+      context: ["kpd_stance_in_play"],
       requires: ["KPD Stance track is in use for the scenario."]
     },
     {
@@ -539,6 +664,7 @@ const factionActions = {
       title: "Change Stance",
       citation: "6.5",
       summary: "Shift NSDAP Stance one box in either direction.",
+      context: ["nsdap_stance_in_play"],
       requires: ["NSDAP Stance track is in use for the scenario."]
     },
     {
@@ -967,6 +1093,8 @@ const botPriorityActionMap = {
 
 const state = {
   screen: "dashboard",
+  navStack: [],
+  scenarioId: "",
   selectedFaction: "coalition",
   currentSource: "rulebook",
   year: 1919,
@@ -1000,6 +1128,12 @@ const state = {
     generalStrikeActive: false,
     yellowProgressLeverage: "unknown",
     blackReactionLeverage: "unknown",
+    usDeals: 1,
+    ussrDeals: 1,
+    kpdStance: "left_revolutionary",
+    nsdapStance: "revolutionary",
+    reactionLimitIgnored: false,
+    scenarioSetup: "",
     notes: ""
   },
   controllers: {
@@ -1087,6 +1221,9 @@ function normalizeState() {
   state.activeFaction = state.turnOrder[state.activeTurnIndex] || state.activeFaction;
   if (!factions[state.activeFaction]) state.activeFaction = "coalition";
   if (!sources.some(source => source.id === state.currentSource)) state.currentSource = "rulebook";
+  if (!Array.isArray(state.navStack)) state.navStack = [];
+  state.navStack = state.navStack.slice(-25);
+  if (state.scenarioId && !scenarios.some(scenario => scenario.id === state.scenarioId)) state.scenarioId = "";
   if (!state.sequenceAnswers || typeof state.sequenceAnswers !== "object") state.sequenceAnswers = {};
   if (!["setup", "turn", "board"].includes(state.actionPage)) state.actionPage = "setup";
   if (!["choice", "event", "action1", "action2", "election", "bot_summary", "bot_action1", "bot_action2", "bot_election", "done"].includes(state.actionSubpage)) state.actionSubpage = "choice";
@@ -1113,8 +1250,18 @@ function normalizeState() {
     generalStrikeActive: !!state.boardState.generalStrikeActive,
     yellowProgressLeverage: state.boardState.yellowProgressLeverage || "unknown",
     blackReactionLeverage: state.boardState.blackReactionLeverage || "unknown",
+    usDeals: Number.isFinite(Number(state.boardState.usDeals)) ? Number(state.boardState.usDeals) : 1,
+    ussrDeals: Number.isFinite(Number(state.boardState.ussrDeals)) ? Number(state.boardState.ussrDeals) : 1,
+    kpdStance: state.boardState.kpdStance || "left_revolutionary",
+    nsdapStance: state.boardState.nsdapStance || "revolutionary",
+    reactionLimitIgnored: !!state.boardState.reactionLimitIgnored,
+    scenarioSetup: state.boardState.scenarioSetup || "",
     notes: state.boardState.notes || ""
   };
+  state.boardState.usDeals = Math.max(0, Math.min(5, state.boardState.usDeals));
+  state.boardState.ussrDeals = Math.max(0, Math.min(5, state.boardState.ussrDeals));
+  if (!stanceOptions.some(([id]) => id === state.boardState.kpdStance)) state.boardState.kpdStance = "left_revolutionary";
+  if (!stanceOptions.some(([id]) => id === state.boardState.nsdapStance)) state.boardState.nsdapStance = "revolutionary";
   if (!state.controllers || typeof state.controllers !== "object") state.controllers = {};
   state.controllers = {
     coalition: state.controllers.coalition === "bot" ? "bot" : "human",
@@ -1217,7 +1364,59 @@ function clearSequenceChecks(prefix) {
   }
 }
 
-function setScreen(screen) {
+let autoSaveTimer = null;
+let autoSaveReady = false;
+
+function snapshotState() {
+  const snapshot = deepClone(state);
+  snapshot.navStack = [];
+  return snapshot;
+}
+
+function pushHistory() {
+  if (!autoSaveReady) return;
+  state.navStack.push(snapshotState());
+  state.navStack = state.navStack.slice(-25);
+}
+
+function restoreStateSnapshot(snapshot, navStack) {
+  for (const key of Object.keys(state)) delete state[key];
+  Object.assign(state, snapshot);
+  state.navStack = navStack;
+  normalizeState();
+}
+
+function autoSaveStateNow() {
+  if (!autoSaveReady) return;
+  try {
+    state.lastSavedAt = new Date().toISOString();
+    localStorage.setItem(LOCAL_SAVE_KEY, JSON.stringify(state));
+  } catch (error) {
+    // Private browsing or full storage should not block play.
+  }
+}
+
+function scheduleAutoSave() {
+  if (!autoSaveReady) return;
+  if (autoSaveTimer) window.clearTimeout(autoSaveTimer);
+  autoSaveTimer = window.setTimeout(autoSaveStateNow, AUTO_SAVE_DELAY_MS);
+}
+
+function loadAutoSavedState() {
+  try {
+    const raw = localStorage.getItem(LOCAL_SAVE_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    for (const key of Object.keys(state)) delete state[key];
+    Object.assign(state, parsed);
+    normalizeState();
+  } catch (error) {
+    localStorage.removeItem(LOCAL_SAVE_KEY);
+  }
+}
+
+function setScreen(screen, remember = true) {
+  if (remember && state.screen !== screen) pushHistory();
   state.screen = screen;
   render();
 }
@@ -1230,6 +1429,7 @@ function setFaction(factionId) {
 
 function setActiveFaction(factionId) {
   if (!factions[factionId]) return;
+  if (state.activeFaction !== factionId) pushHistory();
   state.activeFaction = factionId;
   const index = state.turnOrder.indexOf(factionId);
   if (index >= 0) state.activeTurnIndex = index;
@@ -1281,6 +1481,7 @@ function setSource(sourceId) {
 function setYear(year) {
   const parsed = Number(year);
   if (!years.includes(parsed)) return;
+  if (state.year !== parsed) pushHistory();
   state.year = parsed;
   state.activeTurnIndex = 0;
   state.activeFaction = state.turnOrder[0] || "coalition";
@@ -1289,6 +1490,7 @@ function setYear(year) {
 }
 
 function setRound(round) {
+  if (state.round !== (round === 2 ? 2 : 1)) pushHistory();
   state.round = round === 2 ? 2 : 1;
   state.activeTurnIndex = 0;
   state.activeFaction = state.turnOrder[0] || "coalition";
@@ -1310,10 +1512,12 @@ function toggleStep(step) {
 
 function updateEventTitle(value) {
   state.eventTitle = value;
+  scheduleAutoSave();
 }
 
 function updateNotes(value) {
   state.notes = value;
+  scheduleAutoSave();
 }
 
 function updateSaveLoadText(value) {
@@ -1332,10 +1536,11 @@ function editSoloSetup() {
 
 function setBoardState(key, value) {
   if (!Object.prototype.hasOwnProperty.call(state.boardState, key)) return;
-  if (key === "progress" || key === "reaction") {
+  if (key === "progress" || key === "reaction" || key === "usDeals" || key === "ussrDeals") {
     const parsed = Number(value);
-    state.boardState[key] = Number.isFinite(parsed) ? Math.max(0, Math.min(6, parsed)) : 0;
-  } else if (key === "generalStrikeActive") {
+    const max = key === "usDeals" || key === "ussrDeals" ? 5 : 6;
+    state.boardState[key] = Number.isFinite(parsed) ? Math.max(0, Math.min(max, parsed)) : 0;
+  } else if (key === "generalStrikeActive" || key === "reactionLimitIgnored") {
     state.boardState[key] = value === true || value === "true";
   } else {
     state.boardState[key] = value;
@@ -1343,14 +1548,78 @@ function setBoardState(key, value) {
   render();
 }
 
+function scenarioSetupText(scenario) {
+  if (!scenario) return "";
+  return [
+    `${scenario.title} (${scenario.years})`,
+    `Source: ${scenario.source}`,
+    "Special rules:",
+    ...(scenario.special.length ? scenario.special.map(item => `- ${item}`) : ["- None listed."]),
+    "Victory:",
+    ...scenario.victory.map(item => `- ${item}`),
+    "Setup:",
+    ...scenario.setup.map(item => `- ${item}`)
+  ].join("\n");
+}
+
+function applyScenario(scenarioId) {
+  const scenario = scenarios.find(item => item.id === scenarioId);
+  if (!scenario) return;
+  pushHistory();
+  state.scenarioId = scenario.id;
+  state.year = scenario.start.year;
+  state.round = scenario.start.round;
+  state.momentumFaction = scenario.start.momentumFaction;
+  state.turnOrder = ["coalition", "kpd", "nsdap", "radical_conservatives"];
+  state.activeTurnIndex = 0;
+  state.activeFaction = state.turnOrder[0];
+  state.actionPage = "setup";
+  state.actionSubpage = "choice";
+  state.previousActionPage = "turn";
+  state.sequenceStepIndex = 0;
+  state.completedSequence = [];
+  state.sequenceChecks = {};
+  state.sequenceAnswers = {
+    actionChoice: "",
+    electionPlayed: "",
+    suddenVictory: "",
+    generalElectionOutcome: "",
+    timelineFlip: ""
+  };
+  state.actionPlan = ["", ""];
+  state.selectedActionId = "";
+  state.actionContext = {};
+  state.botTurn = emptyBotTurn();
+  state.boardState = {
+    ...state.boardState,
+    progress: scenario.start.progress,
+    reaction: scenario.start.reaction,
+    economy: scenario.start.economy,
+    unity: scenario.start.unity,
+    generalStrikeActive: false,
+    yellowProgressLeverage: "unknown",
+    blackReactionLeverage: "unknown",
+    usDeals: scenario.start.usDeals,
+    ussrDeals: scenario.start.ussrDeals,
+    kpdStance: scenario.start.kpdStance,
+    nsdapStance: scenario.start.nsdapStance,
+    reactionLimitIgnored: scenario.start.reactionLimitIgnored,
+    scenarioSetup: scenarioSetupText(scenario),
+    notes: state.boardState.notes || ""
+  };
+  render();
+}
+
 function setActionPage(page) {
   if (!["setup", "turn", "board"].includes(page)) return;
+  if (state.actionPage !== page) pushHistory();
   if (page === "board") state.previousActionPage = state.actionPage === "board" ? "turn" : state.actionPage;
   state.actionPage = page;
   render();
 }
 
 function saveTurnSetup() {
+  pushHistory();
   state.activeTurnIndex = 0;
   state.activeFaction = state.turnOrder[0] || "coalition";
   resetCurrentFactionPrompts();
@@ -1360,6 +1629,7 @@ function saveTurnSetup() {
 }
 
 function saveBoardStatePage() {
+  pushHistory();
   state.actionPage = state.previousActionPage || "turn";
   render();
 }
@@ -1375,6 +1645,7 @@ function resetCurrentFactionPrompts() {
 }
 
 function setSequenceAnswer(key, value) {
+  if (state.sequenceAnswers[key] !== value) pushHistory();
   state.sequenceAnswers[key] = value;
   if (key === "actionChoice") {
     state.actionPlan = ["", ""];
@@ -1425,6 +1696,7 @@ function chooseActionForSlot(slot, actionId) {
   const index = Number(slot);
   if (![0, 1].includes(index)) return;
   if (actionId && !findAction(actionId)) return;
+  pushHistory();
   state.actionPlan[index] = actionId;
   state.selectedActionId = actionId || state.selectedActionId;
   if (index === 0 && requiredActionSlots().length > 1) {
@@ -1439,6 +1711,7 @@ function chooseActionForSlot(slot, actionId) {
 
 function setController(factionId, controller) {
   if (!factions[factionId]) return;
+  if (state.controllers[factionId] !== controller) pushHistory();
   state.controllers[factionId] = controller === "bot" ? "bot" : "human";
   state.actionPlan = ["", ""];
   state.selectedActionId = "";
@@ -1448,6 +1721,7 @@ function setController(factionId, controller) {
 
 function updateBotTurn(key, value) {
   if (!["card", "summary", "factionOrder", "impulse", "specialDie", "action"].includes(key)) return;
+  if (key === "summary" && state.botTurn.summary !== value) pushHistory();
   if (key === "action") {
     const index = currentBotActionIndex();
     state.botTurn.actions[index] = value;
@@ -1600,6 +1874,7 @@ function advanceBotActionSubpage() {
 }
 
 function continueSequence() {
+  pushHistory();
   const phase = currentSequencePhase();
   markSequenceComplete(phase.id);
 
@@ -1716,11 +1991,13 @@ function continueSequence() {
 }
 
 function jumpToSequencePhase(phaseId) {
+  pushHistory();
   setSequencePhase(phaseId);
   render();
 }
 
 function advanceRound() {
+  pushHistory();
   if (state.round === 1) {
     state.round = 2;
   } else if (state.year < years[years.length - 1]) {
@@ -1740,6 +2017,7 @@ function advanceRound() {
 }
 
 function rewindRound() {
+  pushHistory();
   if (state.round === 2) {
     state.round = 1;
   } else if (state.year > years[0]) {
@@ -1752,6 +2030,7 @@ function rewindRound() {
 
 function saveStateLocal() {
   const payload = deepClone(state);
+  payload.navStack = [];
   payload.lastSavedAt = new Date().toISOString();
   localStorage.setItem(LOCAL_SAVE_KEY, JSON.stringify(payload));
   state.lastSavedAt = payload.lastSavedAt;
@@ -1810,7 +2089,9 @@ function importStateText() {
 }
 
 function resetApp() {
+  state.navStack = [];
   state.screen = "dashboard";
+  state.scenarioId = "";
   state.selectedFaction = "coalition";
   state.currentSource = "rulebook";
   state.year = 1919;
@@ -1844,6 +2125,12 @@ function resetApp() {
     generalStrikeActive: false,
     yellowProgressLeverage: "unknown",
     blackReactionLeverage: "unknown",
+    usDeals: 1,
+    ussrDeals: 1,
+    kpdStance: "left_revolutionary",
+    nsdapStance: "revolutionary",
+    reactionLimitIgnored: false,
+    scenarioSetup: "",
     notes: ""
   };
   state.controllers = {
@@ -1865,6 +2152,11 @@ function resetApp() {
     cleanup: false
   };
   state.result = null;
+  try {
+    localStorage.removeItem(LOCAL_SAVE_KEY);
+  } catch (error) {
+    // Ignore storage failures on reset.
+  }
   render();
 }
 
@@ -1973,8 +2265,49 @@ function turnContextSummaryHtml() {
   </div>`;
 }
 
+function scenarioPickerHtml() {
+  const selected = currentScenario();
+  return `<div class="scenario-picker">
+    <div class="section-head">
+      <div>
+        <div class="kicker">Scenario</div>
+        <h2>${selected ? esc(selected.title) : "Choose a starting setup"}</h2>
+        <p class="muted">${selected ? `${esc(selected.years)} | ${selected.rounds} rounds | ${esc(selected.length)}` : "Apply a Playbook scenario to set the starting year, tracks, stance rules, and setup checklist."}</p>
+      </div>
+      ${selected ? badge("Auto-saved", "good") : badge("Playbook", "warn")}
+    </div>
+    <div class="source-grid">
+      ${scenarios.map(scenario => `<button class="source-card ${state.scenarioId === scenario.id ? "selected" : ""}" onclick="applyScenario('${scenario.id}')">
+        <div class="row">
+          <div>
+            <div class="source-title">${esc(scenario.title)}</div>
+            <div class="muted">${esc(scenario.years)} | ${scenario.rounds} rounds | ${esc(scenario.length)}</div>
+          </div>
+          ${badge(scenario.source.replace("Playbook ", ""), state.scenarioId === scenario.id ? "good" : "")}
+        </div>
+      </button>`).join("")}
+    </div>
+    ${selected ? `<details class="compact-details">
+      <summary>Scenario setup and restrictions</summary>
+      <div class="walk-block">
+        <div class="field-label">Special rules</div>
+        ${listHtml(selected.special.length ? selected.special : ["None listed."])}
+      </div>
+      <div class="walk-block">
+        <div class="field-label">Victory conditions</div>
+        ${listHtml(selected.victory)}
+      </div>
+      <div class="walk-block">
+        <div class="field-label">Setup checklist</div>
+        ${listHtml(selected.setup)}
+      </div>
+    </details>` : ""}
+  </div>`;
+}
+
 function turnSetupControlsHtml() {
   return `<div class="runner-page">
+    ${scenarioPickerHtml()}
     ${turnQuestionStackHtml()}
     <div class="sequence-actions">
       ${btn("Save setup and start turns", "saveTurnSetup()", "primary")}
@@ -2161,7 +2494,9 @@ function derivedContextValue(key) {
     if (board.blackReactionLeverage === "unknown") return undefined;
     return board.blackReactionLeverage === "above";
   }
-  if (key === "reaction_can_advance") return board.reaction <= board.progress;
+  if (key === "reaction_can_advance") return board.reactionLimitIgnored || board.reaction <= board.progress;
+  if (key === "kpd_stance_in_play") return board.kpdStance !== "not_in_play";
+  if (key === "nsdap_stance_in_play") return board.nsdapStance !== "not_in_play";
   return state.actionContext[key];
 }
 
@@ -2206,6 +2541,8 @@ function boardStateControlsHtml() {
   const board = state.boardState;
   const progressOptions = Array.from({ length: 7 }, (_, value) => `<option value="${value}" ${board.progress === value ? "selected" : ""}>${value}</option>`).join("");
   const reactionOptions = Array.from({ length: 7 }, (_, value) => `<option value="${value}" ${board.reaction === value ? "selected" : ""}>${value}</option>`).join("");
+  const dealOptionsHtml = selected => Array.from({ length: 6 }, (_, value) => `<option value="${value}" ${selected === value ? "selected" : ""}>${value}</option>`).join("");
+  const stanceOptionHtml = selected => stanceOptions.map(([value, label]) => `<option value="${value}" ${selected === value ? "selected" : ""}>${esc(label)}</option>`).join("");
   return `<div class="board-state-grid">
     <div class="context-item">
       <div class="context-label">Progress level</div>
@@ -2239,6 +2576,33 @@ function boardStateControlsHtml() {
       </div>
     </div>
     <div class="context-item">
+      <div class="context-label">U.S. Deals</div>
+      <select class="select-input" onchange="setBoardState('usDeals', this.value)">
+        ${dealOptionsHtml(board.usDeals)}
+      </select>
+    </div>
+    <div class="context-item">
+      <div class="context-label">U.S.S.R. Deals</div>
+      <select class="select-input" onchange="setBoardState('ussrDeals', this.value)">
+        ${dealOptionsHtml(board.ussrDeals)}
+      </select>
+    </div>
+    <div class="context-item">
+      <div class="context-label">KPD Stance</div>
+      <select class="select-input" onchange="setBoardState('kpdStance', this.value)">${stanceOptionHtml(board.kpdStance)}</select>
+    </div>
+    <div class="context-item">
+      <div class="context-label">NSDAP Stance</div>
+      <select class="select-input" onchange="setBoardState('nsdapStance', this.value)">${stanceOptionHtml(board.nsdapStance)}</select>
+    </div>
+    <div class="context-item wide">
+      <div class="context-label">Reaction / Progress cap</div>
+      <div class="segmented two">
+        <button class="${!board.reactionLimitIgnored ? "selected" : ""}" onclick="setBoardState('reactionLimitIgnored', false)">Normal</button>
+        <button class="${board.reactionLimitIgnored ? "selected danger" : ""}" onclick="setBoardState('reactionLimitIgnored', true)">Ignored</button>
+      </div>
+    </div>
+    <div class="context-item">
       <div class="context-label">Yellow Leverage above Progress?</div>
       <select class="select-input" onchange="setBoardState('yellowProgressLeverage', this.value)">
         <option value="unknown" ${board.yellowProgressLeverage === "unknown" ? "selected" : ""}>Unknown</option>
@@ -2258,6 +2622,10 @@ function boardStateControlsHtml() {
       <div class="context-label">Board notes</div>
       <input class="text-input compact-input" value="${esc(board.notes)}" oninput="setBoardState('notes', this.value)" placeholder="Optional notes: available units, key map spaces, odd lingering effects">
     </div>
+    ${board.scenarioSetup ? `<div class="context-item wide">
+      <div class="context-label">Scenario setup checklist</div>
+      ${listHtml(board.scenarioSetup.split("\n").filter(Boolean))}
+    </div>` : ""}
   </div>`;
 }
 
@@ -2272,7 +2640,7 @@ function boardStateCompactHtml() {
       </div>
     </div>
     ${boardStateControlsHtml()}
-    <div class="small-note">Current: Progress ${board.progress}, Reaction ${board.reaction}, Economy ${esc(economyLabel(board.economy))}, Unity ${esc(board.unity)}, General Strike ${board.generalStrikeActive ? "active" : "not active"}.</div>
+    <div class="small-note">Current: Progress ${board.progress}, Reaction ${board.reaction}, Economy ${esc(economyLabel(board.economy))}, Unity ${esc(board.unity)}, U.S. Deals ${board.usDeals}, U.S.S.R. Deals ${board.ussrDeals}, General Strike ${board.generalStrikeActive ? "active" : "not active"}.</div>
     <div class="sequence-actions">
       ${btn("Save board state", "saveBoardStatePage()", "primary")}
     </div>
@@ -2825,6 +3193,10 @@ function boardSummaryLineHtml() {
     <span>Reaction ${board.reaction}</span>
     <span>${esc(economyLabel(board.economy))}</span>
     <span>Unity ${esc(board.unity)}</span>
+    <span>U.S. ${board.usDeals}</span>
+    <span>U.S.S.R. ${board.ussrDeals}</span>
+    <span>KPD ${esc(stanceLabel(board.kpdStance))}</span>
+    <span>NSDAP ${esc(stanceLabel(board.nsdapStance))}</span>
     <span>${board.generalStrikeActive ? "Strike active" : "No strike"}</span>
   </div>`;
 }
@@ -3146,6 +3518,10 @@ function renderDashboard(app) {
 
     ${soloSetupPanelHtml()}
 
+    <section class="panel">
+      ${scenarioPickerHtml()}
+    </section>
+
     <section class="panel turn-panel">
       <div class="section-head">
         <div>
@@ -3327,18 +3703,18 @@ function renderSaveLoad(app) {
       <div>
         <div class="kicker">Persistence</div>
         <h1>Save / Load</h1>
-        <p>Local saves stay in this browser. JSON export/import can move a game state between browsers.</p>
+        <p>The current game auto-saves in this browser. JSON export/import can move a game state between browsers.</p>
       </div>
     </section>
 
     <section class="panel">
       <div class="grid2">
-        ${btn("Save in browser", "saveStateLocal()", "primary")}
+        ${btn("Save now", "saveStateLocal()", "primary")}
         ${btn("Load from browser", "loadStateLocal()")}
         ${btn("Export JSON", "exportStateText()")}
         ${btn("Import JSON", "importStateText()")}
       </div>
-      <p class="muted save-note">Save key: ${LOCAL_SAVE_KEY}${state.lastSavedAt ? " | Last saved: " + state.lastSavedAt : ""}</p>
+      <p class="muted save-note">Autosave key: ${LOCAL_SAVE_KEY}${state.lastSavedAt ? " | Last saved: " + state.lastSavedAt : ""}</p>
       <textarea oninput="updateSaveLoadText(this.value)" placeholder="Exported JSON appears here. Paste JSON here to import.">${esc(state.saveLoadText)}</textarea>
     </section>
 
@@ -3369,30 +3745,42 @@ function render() {
 
   if (state.screen === "factions") {
     renderFactions(app);
+    scheduleAutoSave();
     return;
   }
   if (state.screen === "rules") {
     renderRules(app);
+    scheduleAutoSave();
     return;
   }
   if (state.screen === "notes") {
     renderNotes(app);
+    scheduleAutoSave();
     return;
   }
   if (state.screen === "save_load") {
     renderSaveLoad(app);
+    scheduleAutoSave();
     return;
   }
   if (state.screen === "result") {
     renderResult(app);
+    scheduleAutoSave();
     return;
   }
   renderDashboard(app);
+  scheduleAutoSave();
 }
 
 function back() {
-  if (state.screen === "dashboard") return;
-  setScreen("dashboard");
+  if (state.navStack.length) {
+    const stack = [...state.navStack];
+    const snapshot = stack.pop();
+    restoreStateSnapshot(snapshot, stack);
+    render();
+    return;
+  }
+  if (state.screen !== "dashboard") setScreen("dashboard", false);
 }
 
 window.state = state;
@@ -3424,6 +3812,7 @@ window.setBoardState = setBoardState;
 window.setActionPage = setActionPage;
 window.saveTurnSetup = saveTurnSetup;
 window.saveBoardStatePage = saveBoardStatePage;
+window.applyScenario = applyScenario;
 window.updateBotTurn = updateBotTurn;
 window.chooseBotCard = chooseBotCard;
 window.updateEventTitle = updateEventTitle;
@@ -3446,4 +3835,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 
+loadAutoSavedState();
+autoSaveReady = true;
 render();
