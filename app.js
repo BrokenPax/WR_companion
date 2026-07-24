@@ -1,5 +1,5 @@
 const APP_NAME = "The Weimar Republic Companion";
-const APP_BUILD = "phase-13-autosave-scenarios";
+const APP_BUILD = "phase-14-scenario-menu";
 const LOCAL_SAVE_KEY = "wr-companion-state-v6";
 const AUTO_SAVE_DELAY_MS = 350;
 
@@ -2267,41 +2267,58 @@ function turnContextSummaryHtml() {
 
 function scenarioPickerHtml() {
   const selected = currentScenario();
+  const scenarioButtons = `<div class="source-grid">
+    ${scenarios.map(scenario => `<button class="source-card ${state.scenarioId === scenario.id ? "selected" : ""}" onclick="applyScenario('${scenario.id}')">
+      <div class="row">
+        <div>
+          <div class="source-title">${esc(scenario.title)}</div>
+          <div class="muted">${esc(scenario.years)} | ${scenario.rounds} rounds | ${esc(scenario.length)}</div>
+        </div>
+        ${badge(scenario.source.replace("Playbook ", ""), state.scenarioId === scenario.id ? "good" : "")}
+      </div>
+    </button>`).join("")}
+  </div>`;
+  if (selected) {
+    return `<div class="scenario-picker">
+      <div class="section-head">
+        <div>
+          <div class="kicker">Scenario</div>
+          <h2>${esc(selected.title)}</h2>
+          <p class="muted">${esc(selected.years)} | ${selected.rounds} rounds | ${esc(selected.length)} | ${esc(selected.source)}</p>
+        </div>
+        ${badge("Auto-saved", "good")}
+      </div>
+      <details class="compact-details">
+        <summary>Scenario setup and restrictions</summary>
+        <div class="walk-block">
+          <div class="field-label">Special rules</div>
+          ${listHtml(selected.special.length ? selected.special : ["None listed."])}
+        </div>
+        <div class="walk-block">
+          <div class="field-label">Victory conditions</div>
+          ${listHtml(selected.victory)}
+        </div>
+        <div class="walk-block">
+          <div class="field-label">Setup checklist</div>
+          ${listHtml(selected.setup)}
+        </div>
+      </details>
+      <details class="compact-details">
+        <summary>Change scenario</summary>
+        <div class="walk-block">${scenarioButtons}</div>
+      </details>
+    </div>`;
+  }
   return `<div class="scenario-picker">
     <div class="section-head">
       <div>
         <div class="kicker">Scenario</div>
-        <h2>${selected ? esc(selected.title) : "Choose a starting setup"}</h2>
-        <p class="muted">${selected ? `${esc(selected.years)} | ${selected.rounds} rounds | ${esc(selected.length)}` : "Apply a Playbook scenario to set the starting year, tracks, stance rules, and setup checklist."}</p>
+        <h2>Choose a starting setup</h2>
+        <p class="muted">Apply a Playbook scenario to set the starting year, tracks, stance rules, and setup checklist.</p>
       </div>
-      ${selected ? badge("Auto-saved", "good") : badge("Playbook", "warn")}
+      ${badge("Playbook", "warn")}
     </div>
-    <div class="source-grid">
-      ${scenarios.map(scenario => `<button class="source-card ${state.scenarioId === scenario.id ? "selected" : ""}" onclick="applyScenario('${scenario.id}')">
-        <div class="row">
-          <div>
-            <div class="source-title">${esc(scenario.title)}</div>
-            <div class="muted">${esc(scenario.years)} | ${scenario.rounds} rounds | ${esc(scenario.length)}</div>
-          </div>
-          ${badge(scenario.source.replace("Playbook ", ""), state.scenarioId === scenario.id ? "good" : "")}
-        </div>
-      </button>`).join("")}
-    </div>
-    ${selected ? `<details class="compact-details">
-      <summary>Scenario setup and restrictions</summary>
-      <div class="walk-block">
-        <div class="field-label">Special rules</div>
-        ${listHtml(selected.special.length ? selected.special : ["None listed."])}
-      </div>
-      <div class="walk-block">
-        <div class="field-label">Victory conditions</div>
-        ${listHtml(selected.victory)}
-      </div>
-      <div class="walk-block">
-        <div class="field-label">Setup checklist</div>
-        ${listHtml(selected.setup)}
-      </div>
-    </details>` : ""}
+    ${scenarioButtons}
   </div>`;
 }
 
