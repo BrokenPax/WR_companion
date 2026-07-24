@@ -1,9 +1,11 @@
-const CACHE = "wr-companion-app-v14";
+const CACHE = "wr-companion-app-v15";
 const ASSETS = [
   "./",
   "./index.html",
   "./app.js",
-  "./manifest.json"
+  "./manifest.json",
+  "./icon-192.png",
+  "./icon-512.png"
 ];
 
 self.addEventListener("install", event => {
