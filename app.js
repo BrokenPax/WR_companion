@@ -1,5 +1,5 @@
 const APP_NAME = "The Weimar Republic Companion";
-const APP_BUILD = "phase-14-scenario-menu";
+const APP_BUILD = "phase-15-choice-log";
 const LOCAL_SAVE_KEY = "wr-companion-state-v6";
 const AUTO_SAVE_DELAY_MS = 350;
 
@@ -1116,6 +1116,8 @@ const state = {
     generalElectionOutcome: "",
     timelineFlip: ""
   },
+  choiceDrafts: {},
+  choiceLog: [],
   actionPlan: ["", ""],
   selectedActionId: "",
   actionContext: {},
@@ -1176,7 +1178,9 @@ function esc(value) {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;");
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
 
 function btn(label, onclick, klass = "") {
@@ -1236,6 +1240,9 @@ function normalizeState() {
     timelineFlip: "",
     ...state.sequenceAnswers
   };
+  if (!state.choiceDrafts || typeof state.choiceDrafts !== "object" || Array.isArray(state.choiceDrafts)) state.choiceDrafts = {};
+  if (!Array.isArray(state.choiceLog)) state.choiceLog = [];
+  state.choiceLog = state.choiceLog.filter(entry => entry && typeof entry === "object").slice(-250);
   if (!Array.isArray(state.actionPlan)) state.actionPlan = ["", ""];
   state.actionPlan = [state.actionPlan[0] || "", state.actionPlan[1] || ""];
   if (typeof state.selectedActionId !== "string") state.selectedActionId = "";
@@ -1548,6 +1555,99 @@ function setBoardState(key, value) {
   render();
 }
 
+function actionLabelForId(actionId) {
+  if (actionId === "special") {
+    const special = botSpecialForDie();
+    return special ? `Special Action: ${special.title}` : "Special Action";
+  }
+  return findAction(actionId)?.title || "";
+}
+
+function currentChoiceContext() {
+  const subpage = state.actionSubpage;
+  const controller = activeController() === "bot" ? "Bot" : "Human";
+  const slot = subpage === "action2" || subpage === "bot_action2" ? 1 : 0;
+  let kind = currentSequencePhase().title;
+  let actionLabel = "";
+
+  if (subpage === "event") {
+    kind = "Event";
+    actionLabel = state.eventTitle || "Event card";
+  } else if (subpage === "action1" || subpage === "action2") {
+    kind = `Action ${slot + 1}`;
+    actionLabel = actionLabelForId(state.actionPlan[slot] || state.selectedActionId || defaultActionId());
+  } else if (subpage === "bot_summary") {
+    kind = "Bot card";
+    actionLabel = state.botTurn.card ? `Bot card ${state.botTurn.card}` : "Bot card reveal";
+  } else if (subpage === "bot_action1" || subpage === "bot_action2") {
+    kind = `Bot Action ${slot + 1}`;
+    actionLabel = actionLabelForId(currentBotAction());
+  } else if (subpage === "election" || subpage === "bot_election") {
+    kind = "Election check";
+    actionLabel = state.sequenceAnswers.electionPlayed === "yes" ? "Election card played" : "No Election card";
+  }
+
+  const key = [
+    state.year,
+    state.round,
+    state.activeFaction,
+    controller,
+    subpage,
+    slot,
+    actionLabel
+  ].join("|");
+
+  return { key, controller, kind, slot, actionLabel };
+}
+
+function currentChoiceDraft() {
+  const context = currentChoiceContext();
+  return state.choiceDrafts[context.key] || { choice: "", target: "", result: "", notes: "" };
+}
+
+function updateChoiceDraft(field, value) {
+  if (!["choice", "target", "result", "notes"].includes(field)) return;
+  const context = currentChoiceContext();
+  state.choiceDrafts[context.key] = {
+    ...currentChoiceDraft(),
+    [field]: value
+  };
+  scheduleAutoSave();
+}
+
+function recordChoice() {
+  const context = currentChoiceContext();
+  const draft = currentChoiceDraft();
+  const hasContent = [draft.choice, draft.target, draft.result, draft.notes, context.actionLabel].some(value => String(value || "").trim());
+  if (!hasContent) return;
+  pushHistory();
+  state.choiceLog.unshift({
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    recordedAt: new Date().toISOString(),
+    year: state.year,
+    round: state.round,
+    half: currentHalfLabel(),
+    faction: state.activeFaction,
+    factionLabel: activeFaction().short,
+    controller: context.controller,
+    phase: context.kind,
+    action: context.actionLabel,
+    choice: draft.choice || "",
+    target: draft.target || "",
+    result: draft.result || "",
+    notes: draft.notes || ""
+  });
+  state.choiceLog = state.choiceLog.slice(0, 250);
+  delete state.choiceDrafts[context.key];
+  render();
+}
+
+function deleteChoiceLogEntry(entryId) {
+  pushHistory();
+  state.choiceLog = state.choiceLog.filter(entry => entry.id !== entryId);
+  render();
+}
+
 function scenarioSetupText(scenario) {
   if (!scenario) return "";
   return [
@@ -1586,6 +1686,8 @@ function applyScenario(scenarioId) {
     generalElectionOutcome: "",
     timelineFlip: ""
   };
+  state.choiceDrafts = {};
+  state.choiceLog = [];
   state.actionPlan = ["", ""];
   state.selectedActionId = "";
   state.actionContext = {};
@@ -2412,6 +2514,63 @@ function listHtml(items) {
   return `<ul class="rule-list">${items.map(item => `<li>${esc(item)}</li>`).join("")}</ul>`;
 }
 
+function choiceTrackerHtml() {
+  const context = currentChoiceContext();
+  const draft = currentChoiceDraft();
+  const actionText = context.actionLabel || "Current step";
+  return `<section class="choice-tracker">
+    <div class="section-head">
+      <div>
+        <div class="field-label">Choice tracker</div>
+        <h3>${esc(context.controller)} ${esc(context.kind)}</h3>
+        <p class="muted">${esc(actionText)}</p>
+      </div>
+      ${badge("Autosaves", "good")}
+    </div>
+    <div class="choice-grid">
+      <div>
+        <div class="context-label">Choice made</div>
+        <input class="text-input compact-input" value="${esc(draft.choice)}" oninput="updateChoiceDraft('choice', this.value)" placeholder="Chosen option, priority, card text, or table decision">
+      </div>
+      <div>
+        <div class="context-label">Target / space</div>
+        <input class="text-input compact-input" value="${esc(draft.target)}" oninput="updateChoiceDraft('target', this.value)" placeholder="Space, faction, track, or piece affected">
+      </div>
+      <div>
+        <div class="context-label">Result</div>
+        <input class="text-input compact-input" value="${esc(draft.result)}" oninput="updateChoiceDraft('result', this.value)" placeholder="What changed on the board">
+      </div>
+      <div>
+        <div class="context-label">Notes</div>
+        <input class="text-input compact-input" value="${esc(draft.notes)}" oninput="updateChoiceDraft('notes', this.value)" placeholder="Legality check, die roll, exception, or reminder">
+      </div>
+    </div>
+    <div class="sequence-actions">
+      ${btn("Record choice", "recordChoice()", "primary")}
+    </div>
+  </section>`;
+}
+
+function choiceLogHtml(limit = 6) {
+  const entries = state.choiceLog.slice(0, limit);
+  if (!entries.length) return `<div class="small-note">No in-game choices recorded yet.</div>`;
+  return `<div class="choice-log">
+    ${entries.map(entry => `<article class="choice-entry">
+      <div class="row">
+        <div>
+          <div class="choice-title">${esc(entry.year)} ${esc(entry.half)} | ${esc(entry.factionLabel)} | ${esc(entry.controller)} ${esc(entry.phase)}</div>
+          <div class="muted">${esc(entry.action || "Current step")}</div>
+        </div>
+        <button class="mini-btn" onclick="deleteChoiceLogEntry('${esc(entry.id)}')">Delete</button>
+      </div>
+      ${entry.choice ? `<p><strong>Choice:</strong> ${esc(entry.choice)}</p>` : ""}
+      ${entry.target ? `<p><strong>Target:</strong> ${esc(entry.target)}</p>` : ""}
+      ${entry.result ? `<p><strong>Result:</strong> ${esc(entry.result)}</p>` : ""}
+      ${entry.notes ? `<p><strong>Notes:</strong> ${esc(entry.notes)}</p>` : ""}
+    </article>`).join("")}
+  </div>`;
+}
+
 function continueButtonLabel() {
   const phase = currentSequencePhase();
   if (phase.id === "action" && state.actionPage === "turn") {
@@ -3228,6 +3387,7 @@ function humanActionSelectionPageHtml(slot) {
       ${compactActionPickerHtml()}
     </div>
     ${selectedActionDetailHtml()}
+    ${choiceTrackerHtml()}
     <details class="compact-details">
       <summary>Global Action limits</summary>
       ${listHtml(globalActionLimits)}
@@ -3248,6 +3408,7 @@ function humanActionSubpageHtml() {
     return `
       ${pageHeaderHtml("Event", "Resolve the Event card", "Complete the card text, then continue to the next part of this faction turn.")}
       ${humanEventPromptHtml()}
+      ${choiceTrackerHtml()}
     `;
   }
   if (state.actionSubpage === "action1") return humanActionSelectionPageHtml(0);
@@ -3256,6 +3417,7 @@ function humanActionSubpageHtml() {
     return `
       ${pageHeaderHtml("Election check", "Was an Election card played?", "This answer controls whether the sequence branches to Elections after all faction turns.")}
       <div class="walk-block">${yesNoHtml("electionPlayed", "Election card played", "No Election card")}</div>
+      ${choiceTrackerHtml()}
     `;
   }
   return `${pageHeaderHtml("Faction complete", `${activeFaction().short} turn complete`, "Continue to the next faction in turn order.")}`;
@@ -3291,6 +3453,7 @@ function botActionResolutionPageHtml(slot) {
       ${botActionPickerHtml()}
       ${botSelectedActionDetailHtml()}
     </div>
+    ${choiceTrackerHtml()}
     <details class="compact-details">
       <summary>Bot targeting and option priorities</summary>
       <div class="walk-block">
@@ -3327,6 +3490,7 @@ function botActionSubpageHtml() {
         ${botSetSummaryHtml()}
       </div>
       ${botCardCuesHtml()}
+      ${choiceTrackerHtml()}
       <details class="compact-details">
         <summary>Bot turn reminders</summary>
         <div class="note-list compact">
@@ -3344,6 +3508,7 @@ function botActionSubpageHtml() {
       ${pageHeaderHtml("Bot election check", "Did the bot play an Election card?", "Leave this as No unless the bot event revealed an Election card.")}
       ${botStepStatusHtml()}
       <div class="walk-block">${yesNoHtml("electionPlayed", "Election card played", "No Election card")}</div>
+      ${choiceTrackerHtml()}
     `;
   }
   return `${pageHeaderHtml("Bot complete", `${activeFaction().short} bot turn complete`, "Continue to the next faction in turn order.")}`;
@@ -3583,6 +3748,18 @@ function renderDashboard(app) {
       <div class="small-note">Source: ${esc(phase.source)}. This walkthrough models the Turn Aid sequence; exact action legality and faction-specific victory requirements still need rulebook/player-aid extraction.</div>
     </section>
 
+    <section class="panel">
+      <div class="section-head">
+        <div>
+          <div class="kicker">Play Log</div>
+          <h2>In-game choices</h2>
+          <p class="muted">Recorded human and bot decisions stay with the autosaved game state.</p>
+        </div>
+        ${badge(`${state.choiceLog.length} saved`, state.choiceLog.length ? "good" : "")}
+      </div>
+      ${choiceLogHtml()}
+    </section>
+
     <section class="panel source-panel">
       <div class="section-head">
         <div>
@@ -3735,6 +3912,17 @@ function renderSaveLoad(app) {
       <textarea oninput="updateSaveLoadText(this.value)" placeholder="Exported JSON appears here. Paste JSON here to import.">${esc(state.saveLoadText)}</textarea>
     </section>
 
+    <section class="panel">
+      <div class="section-head">
+        <div>
+          <div class="kicker">Play Log</div>
+          <h2>Recorded choices</h2>
+        </div>
+        ${badge(`${state.choiceLog.length} saved`, state.choiceLog.length ? "good" : "")}
+      </div>
+      ${choiceLogHtml(20)}
+    </section>
+
     <div class="sticky-actions">
       ${btn("Dashboard", "setScreen('dashboard')", "primary")}
       ${btn("Reset", "resetApp()")}
@@ -3815,6 +4003,9 @@ window.setRound = setRound;
 window.setCurrentStep = setCurrentStep;
 window.toggleStep = toggleStep;
 window.setSequenceAnswer = setSequenceAnswer;
+window.updateChoiceDraft = updateChoiceDraft;
+window.recordChoice = recordChoice;
+window.deleteChoiceLogEntry = deleteChoiceLogEntry;
 window.toggleSequenceCheck = toggleSequenceCheck;
 window.continueSequence = continueSequence;
 window.jumpToSequencePhase = jumpToSequencePhase;

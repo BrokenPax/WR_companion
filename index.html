@@ -176,6 +176,12 @@ textarea{width:100%;min-height:150px;border:1px solid var(--line);border-radius:
 .action-detail.check{border-top:5px solid var(--gold)}
 .action-detail.blocked{border-top:5px solid var(--red)}
 .detail-grid{display:grid;gap:12px;margin-top:12px}
+.choice-tracker{border:1px solid var(--line);border-radius:8px;background:white;padding:12px;margin-top:14px}
+.choice-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.choice-log{display:grid;gap:8px}
+.choice-entry{border:1px solid var(--line);border-radius:8px;background:#fffaf0;padding:10px}
+.choice-entry p{color:var(--muted);font-size:13px;line-height:1.35;margin-top:6px}
+.choice-title{font-size:13px;font-weight:900;line-height:1.2}
 .priority-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
 .priority-row span,.mini-rule{border:1px solid var(--line);border-radius:8px;background:#fffaf0;padding:10px;font-size:13px;line-height:1.35}
 .priority-row span.selected{background:#eef1f7;border-color:var(--blue);box-shadow:0 0 0 2px rgba(24,33,58,.12)}
@@ -239,7 +245,7 @@ textarea{width:100%;min-height:150px;border:1px solid var(--line);border-radius:
   .grid2,.grid4,.faction-tabs{grid-template-columns:1fr}
   .sticky-actions{grid-template-columns:repeat(4,minmax(0,1fr));bottom:6px}
   .sticky-actions .btn{font-size:12px;padding:7px 6px;min-height:36px}
-  .option-grid,.action-slots,.context-grid,.action-card-grid,.board-state-grid,.controller-grid,.priority-row,.slot-actions,.turn-order-grid{grid-template-columns:1fr}
+  .option-grid,.action-slots,.context-grid,.action-card-grid,.board-state-grid,.controller-grid,.priority-row,.slot-actions,.turn-order-grid,.choice-grid{grid-template-columns:1fr}
   .compact-action-list{max-height:230px;overflow:auto;padding:2px}
   .priority-row{display:flex;overflow:auto;padding-bottom:2px}
   .priority-row span{flex:0 0 72%}
@@ -269,6 +275,6 @@ textarea{width:100%;min-height:150px;border:1px solid var(--line);border-radius:
   </div></div>
   <main class="wrap" id="app"></main>
 </div>
-<script src="app.js?v=phase-14-scenario-menu"></script>
+<script src="app.js?v=phase-15-choice-log"></script>
 </body>
 </html>
