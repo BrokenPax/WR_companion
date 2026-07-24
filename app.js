@@ -1,5 +1,5 @@
 const APP_NAME = "The Weimar Republic Companion";
-const APP_BUILD = "phase-9-bot-action-slots";
+const APP_BUILD = "phase-10-bot-card-lookup";
 const LOCAL_SAVE_KEY = "wr-companion-state-v6";
 
 const sources = [
@@ -896,7 +896,58 @@ const botSpecialTables = {
   ]
 };
 
-const botCardDatabase = {};
+const botCardDatabase = {
+  "01": { faction: "coalition", impulse: "Berlin", summary: "event_two_actions", priority: ["Special Actions", "Place Influence", "Remove Influence"], image: "assets/cards/bots/bot_01.jpg" },
+  "02": { faction: "coalition", impulse: "Berlin", summary: "event_two_actions", priority: ["Special Actions", "Place Influence", "Remove Influence"], reshuffle: true, image: "assets/cards/bots/bot_02.jpg" },
+  "03": { faction: "coalition", impulse: "Northern States", summary: "one_action", priority: ["Special Actions", "Place Influence", "Remove Influence"], image: "assets/cards/bots/bot_03.jpg" },
+  "04": { faction: "coalition", impulse: "Munchen", summary: "event_two_actions", priority: ["Special Actions", "Place Influence", "Remove Influence"], image: "assets/cards/bots/bot_04.jpg" },
+  "05": { faction: "coalition", impulse: "Munchen", summary: "event_two_actions", priority: ["Special Actions", "Place Influence", "Remove Influence"], image: "assets/cards/bots/bot_05.jpg" },
+  "06": { faction: "coalition", impulse: "Southern States", summary: "one_action", priority: ["Special Actions", "Place Influence", "Remove Influence"], image: "assets/cards/bots/bot_06.jpg" },
+  "07": { faction: "coalition", impulse: "Koln", summary: "event_two_actions", priority: ["Special Actions", "Place Influence", "Remove Influence"], image: "assets/cards/bots/bot_07.jpg" },
+  "08": { faction: "coalition", impulse: "Hamburg", summary: "event_two_actions", priority: ["Special Actions", "Place Influence", "Remove Influence"], image: "assets/cards/bots/bot_08.jpg" },
+  "09": { faction: "coalition", impulse: "Prussian Provinces", summary: "event_two_actions", priority: ["Special Actions", "Place Influence", "Remove Influence"], image: "assets/cards/bots/bot_09.jpg" },
+  "10": { faction: "kpd", impulse: "Berlin", summary: "event_two_actions", priority: ["Place Influence", "Special Actions", "Remove Influence"], image: "assets/cards/bots/bot_10.jpg" },
+  "11": { faction: "kpd", impulse: "Berlin", summary: "event_two_actions", priority: ["Place Influence", "Special Actions", "Remove Influence"], reshuffle: true, image: "assets/cards/bots/bot_11.jpg" },
+  "12": { faction: "kpd", impulse: "Northern States", summary: "event_two_actions", priority: ["Place Influence", "Special Actions", "Remove Influence"], image: "assets/cards/bots/bot_12.jpg" },
+  "13": { faction: "kpd", impulse: "Munchen", summary: "event_two_actions", priority: ["Place Influence", "Special Actions", "Remove Influence"], image: "assets/cards/bots/bot_13.jpg" },
+  "14": { faction: "kpd", impulse: "Hamburg", summary: "event_two_actions", priority: ["Place Influence", "Special Actions", "Remove Influence"], image: "assets/cards/bots/bot_14.jpg" },
+  "15": { faction: "kpd", impulse: "Hamburg", summary: "one_action", priority: ["Place Influence", "Special Actions", "Remove Influence"], image: "assets/cards/bots/bot_15.jpg" },
+  "16": { faction: "kpd", impulse: "Southern States", summary: "event_two_actions", priority: ["Place Influence", "Special Actions", "Remove Influence"], image: "assets/cards/bots/bot_16.jpg" },
+  "17": { faction: "kpd", impulse: "Koln", summary: "event_two_actions", priority: ["Place Influence", "Special Actions", "Remove Influence"], image: "assets/cards/bots/bot_17.jpg" },
+  "18": { faction: "kpd", impulse: "Koln", summary: "one_action", priority: ["Place Influence", "Special Actions", "Remove Influence"], image: "assets/cards/bots/bot_18.jpg" },
+  "19": { faction: "nsdap", impulse: "Munchen", summary: "event_two_actions", priority: ["Place Influence", "Special Actions", "Remove Influence"], image: "assets/cards/bots/bot_19.jpg" },
+  "20": { faction: "nsdap", impulse: "Munchen", summary: "event_two_actions", priority: ["Place Influence", "Special Actions", "Remove Influence"], reshuffle: true, image: "assets/cards/bots/bot_20.jpg" },
+  "21": { faction: "nsdap", impulse: "Munchen", summary: "event_two_actions", priority: ["Place Influence", "Special Actions", "Remove Influence"], image: "assets/cards/bots/bot_21.jpg" },
+  "22": { faction: "nsdap", impulse: "Berlin", summary: "event_two_actions", priority: ["Place Influence", "Special Actions", "Remove Influence"], image: "assets/cards/bots/bot_22.jpg" },
+  "23": { faction: "nsdap", impulse: "Hamburg", summary: "event_two_actions", priority: ["Place Influence", "Special Actions", "Remove Influence"], image: "assets/cards/bots/bot_23.jpg" },
+  "24": { faction: "nsdap", impulse: "Hamburg", summary: "one_action", priority: ["Place Influence", "Special Actions", "Remove Influence"], image: "assets/cards/bots/bot_24.jpg" },
+  "25": { faction: "nsdap", impulse: "Berlin", summary: "event_two_actions", priority: ["Place Influence", "Special Actions", "Remove Influence"], image: "assets/cards/bots/bot_25.jpg" },
+  "26": { faction: "nsdap", impulse: "Koln", summary: "event_two_actions", priority: ["Place Influence", "Special Actions", "Remove Influence"], image: "assets/cards/bots/bot_26.jpg" },
+  "27": { faction: "nsdap", impulse: "Koln", summary: "one_action", priority: ["Place Influence", "Special Actions", "Remove Influence"], image: "assets/cards/bots/bot_27.jpg" },
+  "28": { faction: "radical_conservatives", impulse: "Clique A", summary: "event_two_actions", priority: ["Place Conservative Clique", "Place Influence", "Special Actions", "Remove Influence"], image: "assets/cards/bots/bot_28.jpg" },
+  "29": { faction: "radical_conservatives", impulse: "Clique A", summary: "event_two_actions", priority: ["Place Conservative Clique", "Place Influence", "Special Actions", "Remove Influence"], reshuffle: true, image: "assets/cards/bots/bot_29.jpg" },
+  "30": { faction: "radical_conservatives", impulse: "Clique A", summary: "one_action", priority: ["Place Conservative Clique", "Place Influence", "Special Actions", "Remove Influence"], image: "assets/cards/bots/bot_30.jpg" },
+  "31": { faction: "radical_conservatives", impulse: "Clique C", summary: "event_two_actions", priority: ["Place Conservative Clique", "Place Influence", "Special Actions", "Remove Influence"], image: "assets/cards/bots/bot_31.jpg" },
+  "32": { faction: "radical_conservatives", impulse: "Clique B", summary: "event_two_actions", priority: ["Place Conservative Clique", "Place Influence", "Special Actions", "Remove Influence"], image: "assets/cards/bots/bot_32.jpg" },
+  "33": { faction: "radical_conservatives", impulse: "Clique B", summary: "one_action", priority: ["Place Conservative Clique", "Place Influence", "Special Actions", "Remove Influence"], image: "assets/cards/bots/bot_33.jpg" },
+  "34": { faction: "radical_conservatives", impulse: "Clique B", summary: "event_two_actions", priority: ["Place Conservative Clique", "Place Influence", "Special Actions", "Remove Influence"], image: "assets/cards/bots/bot_34.jpg" },
+  "35": { faction: "radical_conservatives", impulse: "Clique C", summary: "event_two_actions", priority: ["Place Conservative Clique", "Place Influence", "Special Actions", "Remove Influence"], image: "assets/cards/bots/bot_35.jpg" },
+  "36": { faction: "radical_conservatives", impulse: "Clique C", summary: "event_two_actions", priority: ["Place Conservative Clique", "Place Influence", "Special Actions", "Remove Influence"], image: "assets/cards/bots/bot_36.jpg" }
+};
+
+const botCardRanges = {
+  coalition: ["01", "02", "03", "04", "05", "06", "07", "08", "09"],
+  kpd: ["10", "11", "12", "13", "14", "15", "16", "17", "18"],
+  nsdap: ["19", "20", "21", "22", "23", "24", "25", "26", "27"],
+  radical_conservatives: ["28", "29", "30", "31", "32", "33", "34", "35", "36"]
+};
+
+const botPriorityActionMap = {
+  "Special Actions": "special",
+  "Place Influence": "place_influence",
+  "Remove Influence": "remove_influence",
+  "Place Conservative Clique": "place_clique"
+};
 
 const state = {
   screen: "dashboard",
@@ -1403,11 +1454,7 @@ function updateBotTurn(key, value) {
   if (key === "card") {
     const data = botCardData();
     if (data) {
-      state.botTurn.summary = data.summary || state.botTurn.summary;
-      state.botTurn.factionOrder = data.factionOrder || state.botTurn.factionOrder;
-      state.botTurn.impulse = data.impulse || state.botTurn.impulse;
-      state.botTurn.actions = [data.actions?.[0] || "", data.actions?.[1] || ""];
-      state.botTurn.specialDice = ["", ""];
+      applyBotCardData(data);
     }
   }
   if (key === "summary") {
@@ -1419,6 +1466,13 @@ function updateBotTurn(key, value) {
     clearSequenceChecks("bot:");
     state.actionSubpage = "bot_action1";
   }
+  render();
+}
+
+function chooseBotCard(cardNumber) {
+  state.botTurn.card = normalizeBotCardKey(cardNumber) || cardNumber;
+  const data = botCardData();
+  if (data) applyBotCardData(data);
   render();
 }
 
@@ -2429,17 +2483,94 @@ function currentBotSpecialDie() {
   return state.botTurn.specialDice[index] || (index === 0 ? state.botTurn.specialDie : "") || "";
 }
 
+function normalizeBotCardKey(value) {
+  const digits = String(value || "").match(/\d+/)?.[0] || "";
+  if (!digits) return "";
+  return digits.padStart(2, "0").slice(-2);
+}
+
 function botCardData() {
-  const key = String(state.botTurn.card || "").trim().toLowerCase();
+  const key = normalizeBotCardKey(state.botTurn.card);
   return key ? botCardDatabase[key] || null : null;
+}
+
+function botCardSummaryLabel(summary) {
+  return summary === "event_two_actions" ? "Event + 2 Bot Actions" : "1 Bot Action";
+}
+
+function botPriorityActionId(priorityLabel) {
+  return botPriorityActionMap[priorityLabel] || "";
+}
+
+function botActionPriorityLabels() {
+  const data = botCardData();
+  return data?.priority || botActionPriorities[state.activeFaction] || [];
+}
+
+function firstAvailableBotActionFrom(startIndex = 0) {
+  const labels = botActionPriorityLabels();
+  for (let index = startIndex; index < labels.length; index += 1) {
+    const actionId = botPriorityActionId(labels[index]);
+    if (!actionId) continue;
+    if (actionId === "special") return actionId;
+    const action = findAction(actionId);
+    if (action && actionStatus(action).tone !== "blocked") return actionId;
+  }
+  return "";
+}
+
+function priorityIndexForAction(actionId) {
+  const labels = botActionPriorityLabels();
+  return labels.findIndex(label => botPriorityActionId(label) === actionId);
+}
+
+function applyBotCardData(data) {
+  state.botTurn.summary = data.summary || state.botTurn.summary;
+  state.botTurn.impulse = data.impulse || state.botTurn.impulse;
+  state.botTurn.actions = ["", ""];
+  state.botTurn.specialDice = ["", ""];
+  state.botTurn.action = "";
+  state.botTurn.specialDie = "";
+  clearSequenceChecks("bot:");
+  state.sequenceAnswers.electionPlayed = data.summary === "one_action" ? "no" : "";
+
+  const firstAction = firstAvailableBotActionFrom(0);
+  state.botTurn.actions[0] = firstAction;
+  state.botTurn.action = firstAction;
+  if (data.summary === "event_two_actions") {
+    const nextStart = Math.max(0, priorityIndexForAction(firstAction) + 1);
+    state.botTurn.actions[1] = firstAvailableBotActionFrom(nextStart);
+  }
 }
 
 function botCardLookupHtml() {
   const data = botCardData();
   if (data) {
-    return `<div class="info-band"><strong>Card data loaded:</strong> ${esc(data.title || state.botTurn.card)}</div>`;
+    const mismatch = data.faction !== state.activeFaction ? `<div class="warn-box soft"><strong>Wrong faction deck?</strong> Card ${esc(normalizeBotCardKey(state.botTurn.card))} belongs to ${esc(factions[data.faction]?.short || data.faction)}.</div>` : "";
+    return `
+      <div class="bot-card-preview">
+        <img src="${esc(data.image)}" alt="Bot card ${esc(normalizeBotCardKey(state.botTurn.card))}">
+        <div>
+          <div class="info-band"><strong>Card ${esc(normalizeBotCardKey(state.botTurn.card))} loaded:</strong> ${esc(data.impulse)} | ${esc(botCardSummaryLabel(data.summary))}${data.reshuffle ? " | Reshuffle" : ""}</div>
+          ${mismatch}
+        </div>
+      </div>`;
   }
-  return `<div class="small-note">This field is a note for now. The individual bot cards are not in assets yet, so card number lookup and printed-card automation are not available until those cards are transcribed.</div>`;
+  return `<div class="small-note">Enter or tap a bot card number to load its scan and printed action priority.</div>`;
+}
+
+function botCardPickerHtml() {
+  const current = normalizeBotCardKey(state.botTurn.card);
+  const keys = botCardRanges[state.activeFaction] || [];
+  return `<div class="bot-card-grid">
+    ${keys.map(key => {
+      const data = botCardDatabase[key];
+      return `<button class="${current === key ? "selected" : ""}" onclick="chooseBotCard('${key}')">
+        <strong>${Number(key)}</strong>
+        <span>${esc(data.impulse)}</span>
+      </button>`;
+    }).join("")}
+  </div>`;
 }
 
 function botStepState(step) {
@@ -2486,27 +2617,41 @@ function botStepStatusHtml() {
 
 function botActionPickerHtml() {
   const selectedAction = currentBotAction();
-  const options = [
-    {
-      id: "special",
-      title: "Special Action",
-      summary: "Roll on the faction Special Action table.",
-      tone: "ready",
-      label: "Bot table"
-    },
-    ...currentFactionActions().map(action => ({
-      id: action.id,
-      title: action.title,
-      summary: action.summary,
-      ...actionStatus(action)
-    }))
-  ];
+  const data = botCardData();
+  const options = data
+    ? data.priority.map((label, index) => {
+      const id = botPriorityActionId(label);
+      const action = id === "special" ? null : findAction(id);
+      const status = action ? actionStatus(action) : { tone: "ready", label: "Bot table" };
+      return {
+        id,
+        title: label.replace("Actions", "Action"),
+        summary: action?.summary || "Roll on the faction Special Action table.",
+        orderLabel: `Priority ${index + 1}`,
+        ...status
+      };
+    }).filter(option => option.id)
+    : [
+      {
+        id: "special",
+        title: "Special Action",
+        summary: "Roll on the faction Special Action table.",
+        tone: "ready",
+        label: "Bot table"
+      },
+      ...currentFactionActions().map(action => ({
+        id: action.id,
+        title: action.title,
+        summary: action.summary,
+        ...actionStatus(action)
+      }))
+    ];
   return `<div class="compact-action-list">
     ${options.map(option => {
       const selected = selectedAction === option.id;
       const blocked = option.tone === "blocked";
       return `<button class="compact-action ${selected ? "selected" : ""} ${option.tone || ""}" ${blocked ? "disabled" : `onclick="updateBotTurn('action', '${option.id}')"`}>
-        <span>${esc(option.title)}</span>
+        <span>${esc(option.title)}${option.orderLabel ? `<small>${esc(option.orderLabel)}</small>` : ""}</span>
         ${selected ? badge("Selected", "ready") : badge(option.label || "Candidate", option.tone || "ready")}
       </button>`;
     }).join("")}
@@ -2731,14 +2876,14 @@ function botCardCuesHtml() {
 
 function botActionResolutionPageHtml(slot) {
   const actionNumber = slot + 1;
-  const priorities = botActionPriorities[state.activeFaction] || [];
+  const priorities = botActionPriorityLabels();
   return `
     ${pageHeaderHtml(`Bot Action ${actionNumber}`, `${activeFaction().short}: choose legal bot Action`, "Use the first priority that has legal effect. For Action 2, continue from the next priority.")}
     ${botStepStatusHtml()}
     ${boardSummaryLineHtml()}
     <div class="walk-block">
       <div class="field-label">Bot Action priority</div>
-      <div class="priority-row">${priorities.map((item, index) => `<span><strong>${index + 1}</strong> ${esc(item)}</span>`).join("")}</div>
+      <div class="priority-row">${priorities.map((item, index) => `<span class="${currentBotAction() === botPriorityActionId(item) ? "selected" : ""}"><strong>${index + 1}</strong> ${esc(item)}</span>`).join("")}</div>
     </div>
     <div class="walk-block">
       <div class="field-label">Available bot actions</div>
@@ -2773,6 +2918,7 @@ function botActionSubpageHtml() {
       <div class="walk-block">
         <div class="field-label">Bot card selected</div>
         <input class="text-input" value="${esc(state.botTurn.card)}" oninput="updateBotTurn('card', this.value)" placeholder="Bot card number/name">
+        ${botCardPickerHtml()}
         ${botCardLookupHtml()}
       </div>
       <div class="walk-block">
@@ -3267,6 +3413,7 @@ window.setActionPage = setActionPage;
 window.saveTurnSetup = saveTurnSetup;
 window.saveBoardStatePage = saveBoardStatePage;
 window.updateBotTurn = updateBotTurn;
+window.chooseBotCard = chooseBotCard;
 window.updateEventTitle = updateEventTitle;
 window.updateNotes = updateNotes;
 window.updateSaveLoadText = updateSaveLoadText;

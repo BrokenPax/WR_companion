@@ -1,4 +1,4 @@
-const CACHE = "wr-companion-app-v13";
+const CACHE = "wr-companion-app-v14";
 const ASSETS = [
   "./",
   "./index.html",
@@ -28,7 +28,10 @@ self.addEventListener("fetch", event => {
       if (cached) return cached;
       return fetch(event.request).then(response => {
         const url = new URL(event.request.url);
-        if (url.origin === location.origin && url.pathname.endsWith(".pdf")) {
+        if (
+          url.origin === location.origin &&
+          (url.pathname.endsWith(".pdf") || url.pathname.includes("/assets/cards/"))
+        ) {
           const copy = response.clone();
           caches.open(CACHE).then(cache => cache.put(event.request, copy));
         }
