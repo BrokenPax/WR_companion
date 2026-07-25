@@ -1,5 +1,5 @@
 const APP_NAME = "The Weimar Republic Companion";
-const APP_BUILD = "phase-16-board-monitor";
+const APP_BUILD = "phase-17-step-flow";
 const LOCAL_SAVE_KEY = "wr-companion-state-v6";
 const AUTO_SAVE_DELAY_MS = 350;
 
@@ -1152,7 +1152,7 @@ const botPriorityActionMap = {
 };
 
 const state = {
-  screen: "dashboard",
+  screen: "solo_setup",
   navStack: [],
   scenarioId: "",
   selectedFaction: "coalition",
@@ -1402,6 +1402,10 @@ function normalizeState() {
   if (typeof state.selectedActionId !== "string") state.selectedActionId = "";
   if (!state.actionContext || typeof state.actionContext !== "object") state.actionContext = {};
   state.soloSetupComplete = !!state.soloSetupComplete;
+  const knownScreens = ["solo_setup", "scenario_setup", "sequence", "faction_turn", "action_resolve", "board_state", "factions", "rules", "notes", "save_load", "result"];
+  if (!knownScreens.includes(state.screen) || state.screen === "dashboard") {
+    state.screen = state.soloSetupComplete ? (state.scenarioId ? "sequence" : "scenario_setup") : "solo_setup";
+  }
   if (!state.boardState || typeof state.boardState !== "object") state.boardState = {};
   const existingBoard = state.boardState;
   state.boardState = {
@@ -1585,6 +1589,57 @@ function setScreen(screen, remember = true) {
   render();
 }
 
+function goToSequence() {
+  if (state.screen !== "sequence") pushHistory();
+  state.screen = "sequence";
+  render();
+}
+
+function continueToScenarioSetup() {
+  state.soloSetupComplete = true;
+  setScreen("scenario_setup");
+}
+
+function continueFromScenarioSetup() {
+  if (!state.scenarioId) return;
+  setScreen("sequence");
+}
+
+function takeFactionTurn() {
+  pushHistory();
+  state.actionPage = "turn";
+  state.actionSubpage = isActiveBot() ? "bot_summary" : "choice";
+  state.screen = "faction_turn";
+  render();
+}
+
+function editBoardStateFlow() {
+  pushHistory();
+  state.previousActionPage = state.actionPage || "turn";
+  state.actionPage = "board";
+  state.screen = "board_state";
+  render();
+}
+
+function chooseTurnOption(value) {
+  if (!actionChoices.some(option => option.id === value)) return;
+  if (state.sequenceAnswers.actionChoice !== value) pushHistory();
+  state.sequenceAnswers.actionChoice = value;
+  state.actionPlan = ["", ""];
+  state.selectedActionId = "";
+  if (value === "pass" || value === "one_action") {
+    state.sequenceAnswers.electionPlayed = "no";
+  } else {
+    state.sequenceAnswers.electionPlayed = "";
+  }
+  if (value === "pass") state.actionSubpage = "election";
+  if (value === "one_action") state.actionSubpage = "action1";
+  if (value === "event_then_actions") state.actionSubpage = "event";
+  if (value === "actions_then_event") state.actionSubpage = "action1";
+  state.screen = "action_resolve";
+  render();
+}
+
 function setFaction(factionId) {
   if (!factions[factionId]) return;
   state.selectedFaction = factionId;
@@ -1690,7 +1745,7 @@ function updateSaveLoadText(value) {
 
 function completeSoloSetup() {
   state.soloSetupComplete = true;
-  render();
+  setScreen(state.scenarioId ? "sequence" : "scenario_setup");
 }
 
 function editSoloSetup() {
@@ -2089,6 +2144,7 @@ function saveTurnSetup() {
 function saveBoardStatePage() {
   pushHistory();
   state.actionPage = state.previousActionPage || "turn";
+  state.screen = "sequence";
   render();
 }
 
@@ -2350,10 +2406,12 @@ function continueSequence() {
       if (isActiveBot()) {
         if (!state.sequenceAnswers.electionPlayed) state.sequenceAnswers.electionPlayed = "no";
         if (advanceBotActionSubpage()) {
+          state.screen = "action_resolve";
           render();
           return;
         }
       } else if (advanceHumanActionSubpage()) {
+        state.screen = "action_resolve";
         render();
         return;
       }
@@ -2368,11 +2426,13 @@ function continueSequence() {
       resetCurrentFactionPrompts();
       state.actionPage = "turn";
       state.actionSubpage = isActiveBot() ? "bot_summary" : "choice";
+      state.screen = "sequence";
       render();
       return;
     }
     setSequencePhase("sudden_victory");
     state.actionPage = "setup";
+    state.screen = "sequence";
     render();
     return;
   }
@@ -2413,6 +2473,7 @@ function continueSequence() {
     if (state.sequenceAnswers.timelineFlip === "early_to_late") {
       state.round = 2;
       resetSequenceForNextAction();
+      state.screen = "sequence";
       render();
       return;
     }
@@ -2425,6 +2486,7 @@ function continueSequence() {
       state.round = 1;
       setSequencePhase("new_year");
       state.sequenceAnswers.timelineFlip = "";
+      state.screen = "sequence";
       render();
       return;
     }
@@ -2438,12 +2500,14 @@ function continueSequence() {
     } else {
       resetSequenceForNextAction();
     }
+    state.screen = "sequence";
     render();
     return;
   }
 
   if (phase.id === "new_era") {
     resetSequenceForNextAction();
+    state.screen = "sequence";
     render();
   }
 }
@@ -2548,7 +2612,7 @@ function importStateText() {
 
 function resetApp() {
   state.navStack = [];
-  state.screen = "dashboard";
+  state.screen = "solo_setup";
   state.scenarioId = "";
   state.selectedFaction = "coalition";
   state.currentSource = "rulebook";
@@ -3671,6 +3735,219 @@ function soloSetupPanelHtml() {
   </section>`;
 }
 
+function flowStickyHtml(active = "") {
+  const item = (label, action, key) => btn(label, action, active === key ? "primary" : "");
+  return `<div class="sticky-actions">
+    ${item("Setup", "setScreen('solo_setup')", "setup")}
+    ${item("Scenario", "setScreen('scenario_setup')", "scenario")}
+    ${item("Board", "editBoardStateFlow()", "board")}
+    ${btn("Save", "setScreen('save_load')", active === "save" ? "primary" : "secondary")}
+  </div>`;
+}
+
+function controllerSummaryHtml() {
+  return `<div class="pill-list">
+    ${factionIds.map(id => {
+      const controller = state.controllers[id] === "bot" ? "Bot" : "Human";
+      return `<span>${esc(factions[id].short)}: ${esc(controller)}</span>`;
+    }).join("")}
+  </div>`;
+}
+
+function scenarioSummaryHtml() {
+  const scenario = currentScenario();
+  if (!scenario) {
+    return `<div class="info-band">Choose a scenario before starting the sequence.</div>`;
+  }
+  return `<div class="note-list compact">
+    <div class="note-item"><strong>${esc(scenario.title)}</strong><br>${esc(scenario.years)} | ${scenario.rounds} rounds | ${esc(scenario.length)} | ${esc(scenario.source)}</div>
+    <div class="note-item">Current turn: ${esc(state.year)} ${esc(currentHalfLabel())}. Momentum: ${esc(factions[state.momentumFaction]?.short || state.momentumFaction)}.</div>
+  </div>`;
+}
+
+function renderSoloSetup(app) {
+  app.innerHTML = `
+    <section class="panel flow-panel">
+      <div class="section-head">
+        <div>
+          <div class="kicker">Solo Setup</div>
+          <h1>Who is playing?</h1>
+          <p class="muted">Set each faction as human or bot. That is the whole step.</p>
+        </div>
+      </div>
+      ${controllerControlsHtml()}
+      <div class="sequence-actions">
+        ${btn(state.scenarioId ? "Save setup" : "Continue", "completeSoloSetup()", "primary")}
+      </div>
+    </section>
+    ${state.scenarioId ? flowStickyHtml("setup") : ""}
+  `;
+}
+
+function renderScenarioSetup(app) {
+  app.innerHTML = `
+    <section class="panel flow-panel">
+      ${scenarioPickerHtml()}
+      <div class="sequence-actions">
+        <button class="btn primary" ${state.scenarioId ? "onclick=\"continueFromScenarioSetup()\"" : "disabled"}>Continue to sequence</button>
+      </div>
+    </section>
+    ${flowStickyHtml("scenario")}
+  `;
+}
+
+function turnOrderSummaryHtml() {
+  return `<div class="turn-rail">
+    ${state.turnOrder.map((id, index) => {
+      const faction = factions[id] || factions.coalition;
+      const controller = state.controllers[id] === "bot" ? "Bot" : "Human";
+      const active = index === state.activeTurnIndex;
+      return `<div class="turn-rail-item ${active ? "active" : ""}">
+        <span class="turn-order-label">${index + 1}</span>
+        <span>
+          <strong>${esc(faction.short)}</strong>
+          <small>${esc(active ? "Next turn" : controller)}</small>
+        </span>
+      </div>`;
+    }).join("")}
+  </div>`;
+}
+
+function sequenceOverviewControlsHtml() {
+  const phase = currentSequencePhase();
+  if (phase.id === "action") {
+    const disabled = state.scenarioId ? "" : "disabled";
+    return `<div class="sequence-actions">
+      <button class="btn primary" ${disabled} onclick="takeFactionTurn()">Take ${esc(activeFaction().short)} turn</button>
+      ${state.scenarioId ? "" : `<div class="small-note blocked-note">Choose a scenario before starting faction turns.</div>`}
+    </div>`;
+  }
+  return `
+    ${sequenceControlsHtml()}
+    <div class="sequence-actions">
+      ${continueButtonHtml()}
+      ${continueHelpHtml()}
+    </div>
+  `;
+}
+
+function renderSequence(app) {
+  const phase = currentSequencePhase();
+  const active = activeFaction();
+  const era = eraForYear(state.year);
+  app.innerHTML = `
+    <section class="panel flow-panel">
+      <div class="section-head">
+        <div>
+          <div class="kicker">Sequence Of Play</div>
+          <h1>${esc(phase.title)}</h1>
+          <p class="muted">${esc(phase.prompt)}</p>
+        </div>
+        <div class="badge-stack">
+          ${badge(active.short, active.tone)}
+          ${badge(era.label, "dark")}
+        </div>
+      </div>
+      ${sequenceProgressHtml()}
+      ${scenarioSummaryHtml()}
+      ${turnOrderSummaryHtml()}
+      ${controllerSummaryHtml()}
+      ${sequenceOverviewControlsHtml()}
+      <details class="compact-details turn-aid-details">
+        <summary>Turn Aid reminders</summary>
+        ${reminderListHtml(phase.reminders)}
+      </details>
+    </section>
+    ${flowStickyHtml()}
+  `;
+}
+
+function turnOptionButtonsHtml() {
+  return `<div class="option-grid solo-option-grid">
+    ${actionChoices.map(option => {
+      const selected = state.sequenceAnswers.actionChoice === option.id;
+      return `<button class="option-card ${selected ? "selected" : ""}" onclick="chooseTurnOption('${option.id}')">
+        <span class="option-title">${esc(option.label)}</span>
+        <span class="option-detail">${esc(option.detail)}</span>
+      </button>`;
+    }).join("")}
+  </div>`;
+}
+
+function renderFactionTurn(app) {
+  const active = activeFaction();
+  if (isActiveBot()) {
+    app.innerHTML = `
+      <section class="panel flow-panel ${active.tone}">
+        ${pageHeaderHtml("Faction Turn", `${active.short}: bot turn`, "Reveal the bot card and resolve only this faction's turn.")}
+        ${botActionSubpageHtml()}
+        <div class="sequence-actions">
+          ${continueButtonHtml()}
+          ${continueHelpHtml()}
+        </div>
+      </section>
+      ${flowStickyHtml()}
+    `;
+    return;
+  }
+  app.innerHTML = `
+    <section class="panel flow-panel ${active.tone}">
+      <div class="section-head">
+        <div>
+          <div class="kicker">Faction Turn</div>
+          <h1>${esc(active.short)}</h1>
+          <p class="muted">${esc(active.role)}</p>
+        </div>
+        ${badge(state.controllers[state.activeFaction] === "bot" ? "Bot" : "Human", active.tone)}
+      </div>
+      ${turnOptionButtonsHtml()}
+    </section>
+    ${flowStickyHtml()}
+  `;
+}
+
+function humanActionBoardHtml() {
+  if (state.actionSubpage === "event" || state.actionSubpage === "election" || state.actionSubpage === "done") {
+    return humanActionSubpageHtml();
+  }
+  return `
+    ${pageHeaderHtml("Action / Board", `${activeFaction().short}: choose and update`, "Pick the action, then adjust remembered board state as needed.")}
+    ${actionPlanSummaryHtml()}
+    <div class="walk-block">
+      <div class="field-label">Available actions</div>
+      ${compactActionPickerHtml()}
+    </div>
+    ${selectedActionDetailHtml()}
+    <details class="compact-details" open>
+      <summary>Board monitor</summary>
+      ${boardStateControlsHtml()}
+    </details>
+  `;
+}
+
+function renderActionResolve(app) {
+  const active = activeFaction();
+  app.innerHTML = `
+    <section class="panel flow-panel ${active.tone}">
+      ${isActiveBot() ? botActionSubpageHtml() : humanActionBoardHtml()}
+      <div class="sequence-actions">
+        ${continueButtonHtml()}
+        ${continueHelpHtml()}
+      </div>
+    </section>
+    ${flowStickyHtml()}
+  `;
+}
+
+function renderBoardState(app) {
+  app.innerHTML = `
+    <section class="panel flow-panel">
+      ${boardStateCompactHtml()}
+    </section>
+    ${flowStickyHtml("board")}
+  `;
+}
+
 function botSetSummaryHtml() {
   const options = [
     {
@@ -4624,6 +4901,36 @@ function render() {
   const app = document.getElementById("app");
   if (!app) return;
 
+  if (state.screen === "solo_setup") {
+    renderSoloSetup(app);
+    scheduleAutoSave();
+    return;
+  }
+  if (state.screen === "scenario_setup") {
+    renderScenarioSetup(app);
+    scheduleAutoSave();
+    return;
+  }
+  if (state.screen === "sequence") {
+    renderSequence(app);
+    scheduleAutoSave();
+    return;
+  }
+  if (state.screen === "faction_turn") {
+    renderFactionTurn(app);
+    scheduleAutoSave();
+    return;
+  }
+  if (state.screen === "action_resolve") {
+    renderActionResolve(app);
+    scheduleAutoSave();
+    return;
+  }
+  if (state.screen === "board_state") {
+    renderBoardState(app);
+    scheduleAutoSave();
+    return;
+  }
   if (state.screen === "factions") {
     renderFactions(app);
     scheduleAutoSave();
@@ -4649,7 +4956,7 @@ function render() {
     scheduleAutoSave();
     return;
   }
-  renderDashboard(app);
+  renderSequence(app);
   scheduleAutoSave();
 }
 
@@ -4661,13 +4968,19 @@ function back() {
     render();
     return;
   }
-  if (state.screen !== "dashboard") setScreen("dashboard", false);
+  if (state.screen !== "sequence") setScreen("sequence", false);
 }
 
 window.state = state;
 window.render = render;
 window.back = back;
 window.setScreen = setScreen;
+window.goToSequence = goToSequence;
+window.continueToScenarioSetup = continueToScenarioSetup;
+window.continueFromScenarioSetup = continueFromScenarioSetup;
+window.takeFactionTurn = takeFactionTurn;
+window.editBoardStateFlow = editBoardStateFlow;
+window.chooseTurnOption = chooseTurnOption;
 window.setFaction = setFaction;
 window.setActiveFaction = setActiveFaction;
 window.setMomentumFaction = setMomentumFaction;
