@@ -1,5 +1,5 @@
 const APP_NAME = "The Weimar Republic Companion";
-const APP_BUILD = "phase-15-choice-log";
+const APP_BUILD = "phase-16-board-monitor";
 const LOCAL_SAVE_KEY = "wr-companion-state-v6";
 const AUTO_SAVE_DELAY_MS = 350;
 
@@ -240,6 +240,66 @@ const electionRegions = [
   "Northern States",
   "Southern States",
   "Prussian Provinces"
+];
+
+const mapSpaces = [
+  { id: "berlin", label: "Berlin", type: "city" },
+  { id: "hamburg", label: "Hamburg", type: "city" },
+  { id: "muenchen", label: "Muenchen", type: "city" },
+  { id: "koeln", label: "Koeln", type: "city" },
+  { id: "bayern", label: "Bayern", type: "region" },
+  { id: "northern_states", label: "Northern States", type: "region" },
+  { id: "southern_states", label: "Southern States", type: "region" },
+  { id: "prussian_provinces", label: "Prussian Provinces", type: "region" }
+];
+
+const spaceAliases = {
+  koln: "koeln",
+  cologne: "koeln",
+  munchen: "muenchen",
+  munich: "muenchen",
+  bavaria: "bayern",
+  "clique a": "prussian_provinces",
+  "clique b": "northern_states",
+  "clique c": "southern_states"
+};
+
+const controlOptions = [["uncontrolled", "Uncontrolled"], ...factionIds.map(id => [id, factions[id].short])];
+
+const effectModes = [
+  ["influence", "Influence"],
+  ["unit", "Units"],
+  ["control", "Control"],
+  ["marker", "Markers"],
+  ["track", "Tracks"],
+  ["note", "Note"]
+];
+
+const markerOptions = [
+  ["strike", "Strike"],
+  ["uprising", "Uprising"],
+  ["reform", "Coalition Reform"],
+  ["kpdCadre", "KPD Cadre"],
+  ["nsdapCadre", "NSDAP Cadre"],
+  ["conservativeClique", "Conservative Clique"],
+  ["yellowLeverage", "Yellow Leverage"],
+  ["blackLeverage", "Black Leverage"],
+  ["assassinations", "Assassinations"]
+];
+
+const boardTrackOptions = [
+  ["progress", "Progress"],
+  ["reaction", "Reaction"],
+  ["economy", "Economy"],
+  ["unity", "Coalition Unity"],
+  ["usDeals", "U.S. Deals"],
+  ["ussrDeals", "U.S.S.R. Deals"],
+  ["kpdStance", "KPD Stance"],
+  ["nsdapStance", "NSDAP Stance"],
+  ["generalStrikeActive", "General Strike"],
+  ["yellowProgressLeverage", "Yellow Leverage / Progress"],
+  ["blackReactionLeverage", "Black Leverage / Reaction"],
+  ["reactionLimitIgnored", "Reaction cap"]
 ];
 
 const generalElectionOutcomes = [
@@ -1118,6 +1178,8 @@ const state = {
   },
   choiceDrafts: {},
   choiceLog: [],
+  effectDrafts: {},
+  effectHistory: [],
   actionPlan: ["", ""],
   selectedActionId: "",
   actionContext: {},
@@ -1135,6 +1197,8 @@ const state = {
     kpdStance: "left_revolutionary",
     nsdapStance: "revolutionary",
     reactionLimitIgnored: false,
+    selectedSpace: "berlin",
+    spaces: {},
     scenarioSetup: "",
     notes: ""
   },
@@ -1195,6 +1259,93 @@ function deepClone(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
+function clampInt(value, min = 0, max = 99) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return min;
+  return Math.max(min, Math.min(max, Math.trunc(parsed)));
+}
+
+function normalizeSpaceId(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "berlin";
+  const slug = raw.toLowerCase().replaceAll("ü", "ue").replaceAll("ö", "oe").replaceAll("ä", "ae").replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+  const spaced = raw.toLowerCase().replaceAll("ü", "ue").replaceAll("ö", "oe").replaceAll("ä", "ae").replace(/[^a-z0-9]+/g, " ").trim();
+  return mapSpaces.some(space => space.id === slug) ? slug : spaceAliases[slug] || spaceAliases[spaced] || "berlin";
+}
+
+function blankSpaceState(spaceId) {
+  return {
+    id: spaceId,
+    population: 0,
+    control: "coalition",
+    influence: Object.fromEntries(factionIds.map(id => [id, 0])),
+    units: Object.fromEntries(factionIds.map(id => [id, 0])),
+    markers: {
+      strike: false,
+      uprising: false,
+      reform: false,
+      kpdCadre: 0,
+      nsdapCadre: 0,
+      conservativeClique: 0,
+      yellowLeverage: false,
+      blackLeverage: false,
+      assassinations: ""
+    },
+    notes: ""
+  };
+}
+
+function normalizeSpaceState(spaceId, existing = {}) {
+  const base = blankSpaceState(spaceId);
+  const influence = existing.influence && typeof existing.influence === "object" ? existing.influence : {};
+  const units = existing.units && typeof existing.units === "object" ? existing.units : {};
+  const markers = existing.markers && typeof existing.markers === "object" ? existing.markers : {};
+  return {
+    ...base,
+    population: clampInt(existing.population, 0, 20),
+    control: controlOptions.some(([id]) => id === existing.control) ? existing.control : base.control,
+    influence: Object.fromEntries(factionIds.map(id => [id, clampInt(influence[id], 0, 99)])),
+    units: Object.fromEntries(factionIds.map(id => [id, clampInt(units[id], 0, 99)])),
+    markers: {
+      strike: !!markers.strike,
+      uprising: !!markers.uprising,
+      reform: !!markers.reform,
+      kpdCadre: clampInt(markers.kpdCadre, 0, 9),
+      nsdapCadre: clampInt(markers.nsdapCadre, 0, 9),
+      conservativeClique: clampInt(markers.conservativeClique, 0, 9),
+      yellowLeverage: !!markers.yellowLeverage,
+      blackLeverage: !!markers.blackLeverage,
+      assassinations: markers.assassinations || ""
+    },
+    notes: existing.notes || ""
+  };
+}
+
+function defaultSpacesForScenario(scenarioId = "") {
+  const spaces = Object.fromEntries(mapSpaces.map(space => [space.id, blankSpaceState(space.id)]));
+  if (scenarioId === "black_sun_1928") spaces.koeln.control = "uncontrolled";
+  return spaces;
+}
+
+function normalizeBoardSpaces(existing = {}, scenarioId = state.scenarioId) {
+  const scenarioSpaces = defaultSpacesForScenario(scenarioId);
+  const source = existing && typeof existing === "object" && !Array.isArray(existing) ? existing : {};
+  return Object.fromEntries(mapSpaces.map(space => {
+    const saved = source[space.id] || {};
+    const seeded = scenarioSpaces[space.id] || blankSpaceState(space.id);
+    return [space.id, normalizeSpaceState(space.id, { ...seeded, ...saved })];
+  }));
+}
+
+function selectedSpace() {
+  const id = normalizeSpaceId(state.boardState.selectedSpace);
+  return state.boardState.spaces[id] || state.boardState.spaces.berlin || blankSpaceState("berlin");
+}
+
+function spaceLabel(spaceId) {
+  return mapSpaces.find(space => space.id === spaceId)?.label || spaceId;
+}
+
 function emptyBotTurn() {
   return {
     card: "",
@@ -1243,12 +1394,16 @@ function normalizeState() {
   if (!state.choiceDrafts || typeof state.choiceDrafts !== "object" || Array.isArray(state.choiceDrafts)) state.choiceDrafts = {};
   if (!Array.isArray(state.choiceLog)) state.choiceLog = [];
   state.choiceLog = state.choiceLog.filter(entry => entry && typeof entry === "object").slice(-250);
+  if (!state.effectDrafts || typeof state.effectDrafts !== "object" || Array.isArray(state.effectDrafts)) state.effectDrafts = {};
+  if (!Array.isArray(state.effectHistory)) state.effectHistory = [];
+  state.effectHistory = state.effectHistory.filter(entry => entry && typeof entry === "object").slice(-100);
   if (!Array.isArray(state.actionPlan)) state.actionPlan = ["", ""];
   state.actionPlan = [state.actionPlan[0] || "", state.actionPlan[1] || ""];
   if (typeof state.selectedActionId !== "string") state.selectedActionId = "";
   if (!state.actionContext || typeof state.actionContext !== "object") state.actionContext = {};
   state.soloSetupComplete = !!state.soloSetupComplete;
   if (!state.boardState || typeof state.boardState !== "object") state.boardState = {};
+  const existingBoard = state.boardState;
   state.boardState = {
     progress: Number.isFinite(Number(state.boardState.progress)) ? Number(state.boardState.progress) : 0,
     reaction: Number.isFinite(Number(state.boardState.reaction)) ? Number(state.boardState.reaction) : 0,
@@ -1262,6 +1417,8 @@ function normalizeState() {
     kpdStance: state.boardState.kpdStance || "left_revolutionary",
     nsdapStance: state.boardState.nsdapStance || "revolutionary",
     reactionLimitIgnored: !!state.boardState.reactionLimitIgnored,
+    selectedSpace: normalizeSpaceId(state.boardState.selectedSpace),
+    spaces: normalizeBoardSpaces(existingBoard.spaces, state.scenarioId),
     scenarioSetup: state.boardState.scenarioSetup || "",
     notes: state.boardState.notes || ""
   };
@@ -1648,6 +1805,201 @@ function deleteChoiceLogEntry(entryId) {
   render();
 }
 
+function currentResolutionActionId() {
+  if (state.actionSubpage === "action1") return state.actionPlan[0] || state.selectedActionId || defaultActionId();
+  if (state.actionSubpage === "action2") return state.actionPlan[1] || state.selectedActionId || defaultActionId();
+  if (state.actionSubpage === "bot_action1" || state.actionSubpage === "bot_action2") return currentBotAction();
+  return "";
+}
+
+function defaultEffectForAction(actionId) {
+  if (actionId === "place_influence") return { mode: "influence", operation: "add", amount: 1 };
+  if (actionId === "remove_influence") return { mode: "influence", operation: "remove", amount: 1 };
+  if (actionId === "place_unit") return { mode: "unit", operation: "add", amount: 1 };
+  if (actionId === "place_cadre") {
+    return { mode: "marker", marker: state.activeFaction === "nsdap" ? "nsdapCadre" : "kpdCadre", markerOperation: "add", amount: 1 };
+  }
+  if (actionId === "place_clique") return { mode: "marker", marker: "conservativeClique", markerOperation: "add", amount: 1 };
+  if (actionId === "place_strike") return { mode: "marker", marker: "strike", markerOperation: "set", amount: 1 };
+  if (actionId === "flip_strike") return { mode: "marker", marker: "uprising", markerOperation: "set", amount: 1 };
+  if (actionId === "place_reform") return { mode: "marker", marker: "reform", markerOperation: "set", amount: 1 };
+  if (actionId === "place_assassinations") return { mode: "marker", marker: "assassinations", markerOperation: "set", markerValue: "yellow_red", amount: 1 };
+  if (actionId === "place_leverage_map") return { mode: "marker", marker: state.activeFaction === "radical_conservatives" ? "blackLeverage" : "yellowLeverage", markerOperation: "set", amount: 1 };
+  if (actionId === "remove_leverage") return { mode: "marker", marker: "yellowLeverage", markerOperation: "clear", amount: 1 };
+  if (actionId === "advance_progress") return { mode: "track", track: "progress", operation: "add", amount: 1 };
+  if (actionId === "advance_reaction") return { mode: "track", track: "reaction", operation: "add", amount: 1 };
+  if (actionId === "increase_deals") return { mode: "track", track: "usDeals", operation: "add", amount: 1 };
+  if (actionId === "increase_unity") return { mode: "track", track: "unity", operation: "add", amount: 1 };
+  return {};
+}
+
+function currentEffectDraft() {
+  const context = currentChoiceContext();
+  const space = normalizeSpaceId(state.botTurn.impulse || state.boardState.selectedSpace);
+  return {
+    mode: "influence",
+    space,
+    faction: state.activeFaction,
+    operation: "add",
+    amount: 1,
+    control: state.activeFaction,
+    marker: "strike",
+    markerOperation: "set",
+    markerValue: "",
+    track: "progress",
+    trackValue: "",
+    notes: "",
+    ...defaultEffectForAction(currentResolutionActionId()),
+    ...(state.effectDrafts[context.key] || {})
+  };
+}
+
+function updateEffectDraft(field, value) {
+  const allowed = ["mode", "space", "faction", "operation", "amount", "control", "marker", "markerOperation", "markerValue", "track", "trackValue", "notes"];
+  if (!allowed.includes(field)) return;
+  const context = currentChoiceContext();
+  const draft = currentEffectDraft();
+  state.effectDrafts[context.key] = {
+    ...draft,
+    [field]: field === "space" ? normalizeSpaceId(value) : value
+  };
+  if (field === "space") state.boardState.selectedSpace = normalizeSpaceId(value);
+  scheduleAutoSave();
+  render();
+}
+
+function applyNumberOperation(current, operation, amount) {
+  const parsed = clampInt(amount, 0, 99);
+  if (operation === "remove") return Math.max(0, Number(current || 0) - parsed);
+  if (operation === "set") return parsed;
+  return Number(current || 0) + parsed;
+}
+
+function assignBoardTrack(track, value, operation = "set", amount = 1) {
+  if (!Object.prototype.hasOwnProperty.call(state.boardState, track)) return "";
+  if (track === "progress" || track === "reaction" || track === "usDeals" || track === "ussrDeals") {
+    const max = track === "usDeals" || track === "ussrDeals" ? 5 : 6;
+    const next = operation === "set" ? clampInt(value || amount, 0, max) : Math.max(0, Math.min(max, applyNumberOperation(state.boardState[track], operation, amount)));
+    state.boardState[track] = next;
+    return `${boardTrackOptions.find(([id]) => id === track)?.[1] || track} -> ${next}`;
+  }
+  if (track === "generalStrikeActive" || track === "reactionLimitIgnored") {
+    const next = value === true || value === "true" || value === "active";
+    state.boardState[track] = next;
+    return `${boardTrackOptions.find(([id]) => id === track)?.[1] || track} -> ${next ? "active/ignored" : "off/normal"}`;
+  }
+  if (track === "unity" && operation !== "set") {
+    const order = ["fragile", "shaky", "sound", "strong"];
+    const current = Math.max(0, order.indexOf(state.boardState.unity));
+    const direction = operation === "remove" ? -1 : 1;
+    const next = order[Math.max(0, Math.min(order.length - 1, current + direction))];
+    state.boardState.unity = next;
+    return `Coalition Unity -> ${next}`;
+  }
+  const next = value || state.boardState[track];
+  state.boardState[track] = next;
+  return `${boardTrackOptions.find(([id]) => id === track)?.[1] || track} -> ${next}`;
+}
+
+function applyBoardEffect() {
+  const context = currentChoiceContext();
+  const draft = currentEffectDraft();
+  const spaceId = normalizeSpaceId(draft.space);
+  const space = state.boardState.spaces[spaceId];
+  if (!space) return;
+  pushHistory();
+  let summary = "";
+
+  if (draft.mode === "influence" || draft.mode === "unit") {
+    if (!factions[draft.faction]) return;
+    const group = draft.mode === "unit" ? "units" : "influence";
+    const next = applyNumberOperation(space[group][draft.faction], draft.operation, draft.amount);
+    space[group][draft.faction] = next;
+    summary = `${spaceLabel(spaceId)} ${factions[draft.faction].short} ${group} -> ${next}`;
+  } else if (draft.mode === "control") {
+    if (!controlOptions.some(([id]) => id === draft.control)) return;
+    space.control = draft.control;
+    summary = `${spaceLabel(spaceId)} control -> ${controlOptions.find(([id]) => id === draft.control)?.[1] || draft.control}`;
+  } else if (draft.mode === "marker") {
+    const marker = draft.marker;
+    if (!Object.prototype.hasOwnProperty.call(space.markers, marker)) return;
+    if (marker === "kpdCadre" || marker === "nsdapCadre" || marker === "conservativeClique") {
+      space.markers[marker] = applyNumberOperation(space.markers[marker], draft.markerOperation === "clear" ? "set" : draft.markerOperation, draft.markerOperation === "clear" ? 0 : draft.amount);
+    } else if (marker === "assassinations") {
+      space.markers.assassinations = draft.markerOperation === "clear" ? "" : draft.markerValue || "yellow_red";
+    } else {
+      space.markers[marker] = draft.markerOperation !== "clear";
+    }
+    summary = `${spaceLabel(spaceId)} ${markerOptions.find(([id]) => id === marker)?.[1] || marker} updated`;
+  } else if (draft.mode === "track") {
+    summary = assignBoardTrack(draft.track, draft.trackValue, draft.operation, draft.amount);
+  } else if (draft.mode === "note") {
+    const text = String(draft.notes || "").trim();
+    if (text) space.notes = [space.notes, text].filter(Boolean).join(" | ");
+    summary = text ? `${spaceLabel(spaceId)} note added` : `${spaceLabel(spaceId)} note checked`;
+  }
+
+  state.boardState.selectedSpace = spaceId;
+  state.effectHistory.unshift({
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    year: state.year,
+    half: currentHalfLabel(),
+    faction: state.activeFaction,
+    phase: context.kind,
+    action: context.actionLabel,
+    summary
+  });
+  state.effectHistory = state.effectHistory.slice(0, 100);
+  delete state.effectDrafts[context.key];
+  render();
+}
+
+function setSelectedSpace(spaceId) {
+  state.boardState.selectedSpace = normalizeSpaceId(spaceId);
+  render();
+}
+
+function setSpacePopulation(spaceId, value) {
+  const space = state.boardState.spaces[normalizeSpaceId(spaceId)];
+  if (!space) return;
+  space.population = clampInt(value, 0, 20);
+  render();
+}
+
+function setSpaceControl(spaceId, control) {
+  const space = state.boardState.spaces[normalizeSpaceId(spaceId)];
+  if (!space || !controlOptions.some(([id]) => id === control)) return;
+  space.control = control;
+  render();
+}
+
+function setSpaceValue(spaceId, group, factionId, value) {
+  const space = state.boardState.spaces[normalizeSpaceId(spaceId)];
+  if (!space || !["influence", "units"].includes(group) || !factions[factionId]) return;
+  space[group][factionId] = clampInt(value, 0, 99);
+  render();
+}
+
+function setSpaceMarker(spaceId, marker, value) {
+  const space = state.boardState.spaces[normalizeSpaceId(spaceId)];
+  if (!space || !Object.prototype.hasOwnProperty.call(space.markers, marker)) return;
+  if (marker === "kpdCadre" || marker === "nsdapCadre" || marker === "conservativeClique") {
+    space.markers[marker] = clampInt(value, 0, 9);
+  } else if (marker === "assassinations") {
+    space.markers.assassinations = value || "";
+  } else {
+    space.markers[marker] = value === true || value === "true";
+  }
+  render();
+}
+
+function setSpaceNotes(spaceId, value) {
+  const space = state.boardState.spaces[normalizeSpaceId(spaceId)];
+  if (!space) return;
+  space.notes = value;
+  scheduleAutoSave();
+}
+
 function scenarioSetupText(scenario) {
   if (!scenario) return "";
   return [
@@ -1688,6 +2040,8 @@ function applyScenario(scenarioId) {
   };
   state.choiceDrafts = {};
   state.choiceLog = [];
+  state.effectDrafts = {};
+  state.effectHistory = [];
   state.actionPlan = ["", ""];
   state.selectedActionId = "";
   state.actionContext = {};
@@ -1706,6 +2060,8 @@ function applyScenario(scenarioId) {
     kpdStance: scenario.start.kpdStance,
     nsdapStance: scenario.start.nsdapStance,
     reactionLimitIgnored: scenario.start.reactionLimitIgnored,
+    selectedSpace: scenario.id === "black_sun_1928" ? "koeln" : "berlin",
+    spaces: defaultSpacesForScenario(scenario.id),
     scenarioSetup: scenarioSetupText(scenario),
     notes: state.boardState.notes || ""
   };
@@ -2215,6 +2571,10 @@ function resetApp() {
     generalElectionOutcome: "",
     timelineFlip: ""
   };
+  state.choiceDrafts = {};
+  state.choiceLog = [];
+  state.effectDrafts = {};
+  state.effectHistory = [];
   state.actionPlan = ["", ""];
   state.selectedActionId = "";
   state.actionContext = {};
@@ -2232,6 +2592,8 @@ function resetApp() {
     kpdStance: "left_revolutionary",
     nsdapStance: "revolutionary",
     reactionLimitIgnored: false,
+    selectedSpace: "berlin",
+    spaces: defaultSpacesForScenario(),
     scenarioSetup: "",
     notes: ""
   };
@@ -2514,41 +2876,211 @@ function listHtml(items) {
   return `<ul class="rule-list">${items.map(item => `<li>${esc(item)}</li>`).join("")}</ul>`;
 }
 
+function selectOptionsHtml(options, selected) {
+  return options.map(([value, label]) => `<option value="${value}" ${selected === value ? "selected" : ""}>${esc(label)}</option>`).join("");
+}
+
+function spaceOptionsHtml(selected) {
+  return mapSpaces.map(space => `<option value="${space.id}" ${selected === space.id ? "selected" : ""}>${esc(space.label)}</option>`).join("");
+}
+
+function numberInputHtml(value, onchange, min = 0, max = 99) {
+  return `<input class="text-input compact-input number-input" type="number" min="${min}" max="${max}" value="${esc(value)}" onchange="${onchange}">`;
+}
+
 function choiceTrackerHtml() {
   const context = currentChoiceContext();
-  const draft = currentChoiceDraft();
+  const draft = currentEffectDraft();
   const actionText = context.actionLabel || "Current step";
-  return `<section class="choice-tracker">
+  return `<section class="board-effect-panel">
     <div class="section-head">
       <div>
-        <div class="field-label">Choice tracker</div>
-        <h3>${esc(context.controller)} ${esc(context.kind)}</h3>
-        <p class="muted">${esc(actionText)}</p>
+        <div class="field-label">Board monitor</div>
+        <h3>Apply board effect</h3>
+        <p class="muted">${esc(context.controller)} ${esc(context.kind)} | ${esc(actionText)}</p>
       </div>
       ${badge("Autosaves", "good")}
     </div>
-    <div class="choice-grid">
-      <div>
-        <div class="context-label">Choice made</div>
-        <input class="text-input compact-input" value="${esc(draft.choice)}" oninput="updateChoiceDraft('choice', this.value)" placeholder="Chosen option, priority, card text, or table decision">
-      </div>
-      <div>
-        <div class="context-label">Target / space</div>
-        <input class="text-input compact-input" value="${esc(draft.target)}" oninput="updateChoiceDraft('target', this.value)" placeholder="Space, faction, track, or piece affected">
-      </div>
-      <div>
-        <div class="context-label">Result</div>
-        <input class="text-input compact-input" value="${esc(draft.result)}" oninput="updateChoiceDraft('result', this.value)" placeholder="What changed on the board">
-      </div>
-      <div>
-        <div class="context-label">Notes</div>
-        <input class="text-input compact-input" value="${esc(draft.notes)}" oninput="updateChoiceDraft('notes', this.value)" placeholder="Legality check, die roll, exception, or reminder">
-      </div>
+    <div class="segmented mode-tabs">
+      ${effectModes.map(([id, label]) => `<button class="${draft.mode === id ? "selected" : ""}" onclick="updateEffectDraft('mode', '${id}')">${esc(label)}</button>`).join("")}
     </div>
+    ${effectFieldsHtml(draft)}
+    ${effectLegalityHintHtml(draft)}
     <div class="sequence-actions">
-      ${btn("Record choice", "recordChoice()", "primary")}
+      ${btn("Apply to board state", "applyBoardEffect()", "primary")}
     </div>
   </section>`;
+}
+
+function effectFieldsHtml(draft) {
+  const spacePicker = `<div>
+    <div class="context-label">Location</div>
+    <select class="select-input" onchange="updateEffectDraft('space', this.value)">${spaceOptionsHtml(draft.space)}</select>
+  </div>`;
+
+  if (draft.mode === "influence" || draft.mode === "unit") {
+    return `<div class="choice-grid">
+      ${spacePicker}
+      <div>
+        <div class="context-label">Faction</div>
+        <select class="select-input" onchange="updateEffectDraft('faction', this.value)">${factionOptionsHtml(draft.faction)}</select>
+      </div>
+      <div>
+        <div class="context-label">${draft.mode === "unit" ? "Unit" : "Influence"} change</div>
+        <select class="select-input" onchange="updateEffectDraft('operation', this.value)">
+          <option value="add" ${draft.operation === "add" ? "selected" : ""}>Add</option>
+          <option value="remove" ${draft.operation === "remove" ? "selected" : ""}>Remove</option>
+          <option value="set" ${draft.operation === "set" ? "selected" : ""}>Set to</option>
+        </select>
+      </div>
+      <div>
+        <div class="context-label">Amount</div>
+        ${numberInputHtml(draft.amount, "updateEffectDraft('amount', this.value)", 0, 99)}
+      </div>
+    </div>`;
+  }
+
+  if (draft.mode === "control") {
+    return `<div class="choice-grid">
+      ${spacePicker}
+      <div>
+        <div class="context-label">Parliamentary Control</div>
+        <select class="select-input" onchange="updateEffectDraft('control', this.value)">${selectOptionsHtml(controlOptions, draft.control)}</select>
+      </div>
+    </div>`;
+  }
+
+  if (draft.mode === "marker") {
+    const numericMarker = ["kpdCadre", "nsdapCadre", "conservativeClique"].includes(draft.marker);
+    const assassinationMarker = draft.marker === "assassinations";
+    return `<div class="choice-grid">
+      ${spacePicker}
+      <div>
+        <div class="context-label">Marker</div>
+        <select class="select-input" onchange="updateEffectDraft('marker', this.value)">${selectOptionsHtml(markerOptions, draft.marker)}</select>
+      </div>
+      <div>
+        <div class="context-label">Change</div>
+        <select class="select-input" onchange="updateEffectDraft('markerOperation', this.value)">
+          <option value="set" ${draft.markerOperation === "set" ? "selected" : ""}>Place / set</option>
+          ${numericMarker ? `<option value="add" ${draft.markerOperation === "add" ? "selected" : ""}>Add</option><option value="remove" ${draft.markerOperation === "remove" ? "selected" : ""}>Remove</option>` : ""}
+          <option value="clear" ${draft.markerOperation === "clear" ? "selected" : ""}>Clear</option>
+        </select>
+      </div>
+      ${numericMarker ? `<div>
+        <div class="context-label">Amount</div>
+        ${numberInputHtml(draft.amount, "updateEffectDraft('amount', this.value)", 0, 9)}
+      </div>` : assassinationMarker ? `<div>
+        <div class="context-label">Assassinations side</div>
+        <select class="select-input" onchange="updateEffectDraft('markerValue', this.value)">
+          <option value="yellow_red" ${draft.markerValue === "yellow_red" ? "selected" : ""}>Yellow / red</option>
+          <option value="brown_black" ${draft.markerValue === "brown_black" ? "selected" : ""}>Brown / black</option>
+        </select>
+      </div>` : `<div>
+        <div class="context-label">State</div>
+        <div class="small-note">${draft.markerOperation === "clear" ? "Marker will be removed." : "Marker will be present after applying."}</div>
+      </div>`}
+    </div>`;
+  }
+
+  if (draft.mode === "track") {
+    return `<div class="choice-grid">
+      <div>
+        <div class="context-label">Track</div>
+        <select class="select-input" onchange="updateEffectDraft('track', this.value)">${selectOptionsHtml(boardTrackOptions, draft.track)}</select>
+      </div>
+      ${trackEffectInputHtml(draft)}
+    </div>`;
+  }
+
+  return `<div class="choice-grid">
+    ${spacePicker}
+    <div>
+      <div class="context-label">Board note</div>
+      <input class="text-input compact-input" value="${esc(draft.notes)}" oninput="updateEffectDraft('notes', this.value)" placeholder="Short note for this location">
+    </div>
+  </div>`;
+}
+
+function trackEffectInputHtml(draft) {
+  if (draft.track === "progress" || draft.track === "reaction" || draft.track === "usDeals" || draft.track === "ussrDeals") {
+    const max = draft.track === "usDeals" || draft.track === "ussrDeals" ? 5 : 6;
+    return `<div>
+      <div class="context-label">Change</div>
+      <select class="select-input" onchange="updateEffectDraft('operation', this.value)">
+        <option value="add" ${draft.operation === "add" ? "selected" : ""}>Advance / add</option>
+        <option value="remove" ${draft.operation === "remove" ? "selected" : ""}>Move back / remove</option>
+        <option value="set" ${draft.operation === "set" ? "selected" : ""}>Set to</option>
+      </select>
+    </div>
+    <div>
+      <div class="context-label">Amount / value</div>
+      ${numberInputHtml(draft.amount, "updateEffectDraft('amount', this.value)", 0, max)}
+    </div>`;
+  }
+  if (draft.track === "economy") {
+    return `<div>
+      <div class="context-label">Economy box</div>
+      <select class="select-input" onchange="updateEffectDraft('trackValue', this.value)">${selectOptionsHtml(economyOptions, draft.trackValue || state.boardState.economy)}</select>
+    </div>`;
+  }
+  if (draft.track === "unity") {
+    const unityOptions = [["fragile", "Fragile"], ["shaky", "Shaky"], ["sound", "Sound"], ["strong", "Strong"]];
+    return `<div>
+      <div class="context-label">Change</div>
+      <select class="select-input" onchange="updateEffectDraft('operation', this.value)">
+        <option value="add" ${draft.operation === "add" ? "selected" : ""}>Increase one box</option>
+        <option value="remove" ${draft.operation === "remove" ? "selected" : ""}>Decrease one box</option>
+        <option value="set" ${draft.operation === "set" ? "selected" : ""}>Set to</option>
+      </select>
+    </div>
+    <div>
+      <div class="context-label">Unity box</div>
+      <select class="select-input" onchange="updateEffectDraft('trackValue', this.value)">${selectOptionsHtml(unityOptions, draft.trackValue || state.boardState.unity)}</select>
+    </div>`;
+  }
+  if (draft.track === "kpdStance" || draft.track === "nsdapStance") {
+    return `<div>
+      <div class="context-label">Stance box</div>
+      <select class="select-input" onchange="updateEffectDraft('trackValue', this.value)">${selectOptionsHtml(stanceOptions, draft.trackValue || state.boardState[draft.track])}</select>
+    </div>`;
+  }
+  if (draft.track === "generalStrikeActive") {
+    return `<div>
+      <div class="context-label">General Strike</div>
+      <select class="select-input" onchange="updateEffectDraft('trackValue', this.value)">
+        <option value="true" ${String(draft.trackValue || state.boardState.generalStrikeActive) === "true" ? "selected" : ""}>Active</option>
+        <option value="false" ${String(draft.trackValue || state.boardState.generalStrikeActive) === "false" ? "selected" : ""}>Not active</option>
+      </select>
+    </div>`;
+  }
+  if (draft.track === "reactionLimitIgnored") {
+    return `<div>
+      <div class="context-label">Reaction cap</div>
+      <select class="select-input" onchange="updateEffectDraft('trackValue', this.value)">
+        <option value="false" ${String(draft.trackValue || state.boardState.reactionLimitIgnored) === "false" ? "selected" : ""}>Normal</option>
+        <option value="true" ${String(draft.trackValue || state.boardState.reactionLimitIgnored) === "true" ? "selected" : ""}>Ignored</option>
+      </select>
+    </div>`;
+  }
+  const leverageOptions = [["unknown", "Unknown"], ["above", "Yes, above"], ["none", "No"]];
+  return `<div>
+    <div class="context-label">Leverage relation</div>
+    <select class="select-input" onchange="updateEffectDraft('trackValue', this.value)">${selectOptionsHtml(leverageOptions, draft.trackValue || state.boardState[draft.track])}</select>
+  </div>`;
+}
+
+function effectLegalityHintHtml(draft) {
+  if (draft.mode !== "influence") return "";
+  const space = state.boardState.spaces[normalizeSpaceId(draft.space)];
+  if (!space) return "";
+  const current = Number(space.influence[draft.faction] || 0);
+  const nextFaction = applyNumberOperation(current, draft.operation, draft.amount);
+  const currentTotal = factionIds.reduce((sum, id) => sum + Number(space.influence[id] || 0), 0);
+  const projectedTotal = currentTotal - current + nextFaction;
+  if (!space.population) return `<div class="small-note">Population is blank for ${esc(spaceLabel(space.id))}; set it in Board State to let the app flag Influence over-cap.</div>`;
+  if (projectedTotal > space.population) return `<div class="warn-box"><strong>Check legality:</strong> projected Influence ${projectedTotal} exceeds Population ${space.population} in ${esc(spaceLabel(space.id))}.</div>`;
+  return `<div class="small-note">Projected Influence ${projectedTotal} / Population ${space.population} in ${esc(spaceLabel(space.id))}.</div>`;
 }
 
 function choiceLogHtml(limit = 6) {
@@ -2657,6 +3189,7 @@ function requiredActionSlots() {
 
 function derivedContextValue(key) {
   const board = state.boardState;
+  const spaces = Object.values(board.spaces || {});
   if (key === "general_strike_clear") return !board.generalStrikeActive;
   if (key === "coalition_influence_allowed") {
     return !["hyperinflation", "hyper_3", "hyper_2", "hyper_1"].includes(board.economy);
@@ -2673,6 +3206,13 @@ function derivedContextValue(key) {
   if (key === "reaction_can_advance") return board.reactionLimitIgnored || board.reaction <= board.progress;
   if (key === "kpd_stance_in_play") return board.kpdStance !== "not_in_play";
   if (key === "nsdap_stance_in_play") return board.nsdapStance !== "not_in_play";
+  if (key === "strike_available") return spaces.some(space => space.markers?.strike);
+  if (key === "kpd_cadre_available") return spaces.some(space => Number(space.markers?.kpdCadre) > 0) || state.actionContext[key];
+  if (key === "nsdap_cadre_available") return spaces.some(space => Number(space.markers?.nsdapCadre) > 0) || state.actionContext[key];
+  if (key === "conservative_clique_available") return spaces.some(space => Number(space.markers?.conservativeClique) > 0) || state.actionContext[key];
+  if (key === "assassination_available") return spaces.some(space => space.markers?.assassinations) || state.actionContext[key];
+  if (key === "leverage_available") return spaces.some(space => space.markers?.yellowLeverage || space.markers?.blackLeverage) || state.actionContext[key];
+  if (key === "unit_available") return spaces.some(space => factionIds.some(id => Number(space.units?.[id]) > 0)) || state.actionContext[key];
   return state.actionContext[key];
 }
 
@@ -2711,6 +3251,152 @@ function actionContextControlsHtml() {
       </div>`;
     }).join("")}
   </div>`;
+}
+
+function markerSummaryHtml(space) {
+  const markers = [];
+  if (space.markers.strike) markers.push("Strike");
+  if (space.markers.uprising) markers.push("Uprising");
+  if (space.markers.reform) markers.push("Reform");
+  if (space.markers.kpdCadre) markers.push(`KPD Cadre ${space.markers.kpdCadre}`);
+  if (space.markers.nsdapCadre) markers.push(`NSDAP Cadre ${space.markers.nsdapCadre}`);
+  if (space.markers.conservativeClique) markers.push(`Clique ${space.markers.conservativeClique}`);
+  if (space.markers.yellowLeverage) markers.push("Yellow Leverage");
+  if (space.markers.blackLeverage) markers.push("Black Leverage");
+  if (space.markers.assassinations) markers.push(space.markers.assassinations === "brown_black" ? "Brown/black Assassinations" : "Yellow/red Assassinations");
+  return markers.length ? markers.map(item => `<span>${esc(item)}</span>`).join("") : `<span>Clear</span>`;
+}
+
+function boardSpaceSnapshotHtml(limit = 4) {
+  const activeSpaces = Object.values(state.boardState.spaces || {}).filter(space => {
+    const influence = factionIds.some(id => Number(space.influence[id]) > 0);
+    const units = factionIds.some(id => Number(space.units[id]) > 0);
+    const markers = space.markers && Object.values(space.markers).some(value => !!value);
+    return influence || units || markers || space.control !== "coalition" || space.notes;
+  });
+  if (!activeSpaces.length) return `<div class="small-note">No space-level changes entered yet. Use Board State or Apply board effect to fill the monitor as play unfolds.</div>`;
+  return `<div class="space-snapshot">
+    ${activeSpaces.slice(0, limit).map(space => `<article class="space-row">
+      <div>
+        <strong>${esc(spaceLabel(space.id))}</strong>
+        <span>${esc(controlOptions.find(([id]) => id === space.control)?.[1] || "Uncontrolled")}</span>
+      </div>
+      <div class="pill-list">${factionIds.filter(id => Number(space.influence[id]) > 0).map(id => `<span>${esc(factions[id].short)} ${space.influence[id]}</span>`).join("") || "<span>No influence</span>"}</div>
+      <div class="pill-list">${markerSummaryHtml(space)}</div>
+    </article>`).join("")}
+  </div>`;
+}
+
+function boardMonitorSummaryHtml() {
+  const board = state.boardState;
+  return `<div class="board-monitor-summary">
+    ${boardSummaryLineHtml()}
+    ${boardSpaceSnapshotHtml()}
+    <div class="sequence-actions">
+      ${btn("Open Board State", "setActionPage('board')", "primary")}
+    </div>
+  </div>`;
+}
+
+function spaceEditorHtml() {
+  const space = selectedSpace();
+  const spaceId = space.id;
+  const control = controlOptions.find(([id]) => id === space.control)?.[1] || "Uncontrolled";
+  return `<details class="compact-details map-space-editor" open>
+    <summary>Map-space monitor: ${esc(spaceLabel(spaceId))} (${esc(control)})</summary>
+    <div class="walk-block">
+      <div class="choice-grid">
+        <div>
+          <div class="context-label">Selected location</div>
+          <select class="select-input" onchange="setSelectedSpace(this.value)">${spaceOptionsHtml(spaceId)}</select>
+        </div>
+        <div>
+          <div class="context-label">Population</div>
+          ${numberInputHtml(space.population, `setSpacePopulation('${spaceId}', this.value)`, 0, 20)}
+        </div>
+        <div>
+          <div class="context-label">Parliamentary Control</div>
+          <select class="select-input" onchange="setSpaceControl('${spaceId}', this.value)">${selectOptionsHtml(controlOptions, space.control)}</select>
+        </div>
+        <div>
+          <div class="context-label">Assassinations</div>
+          <select class="select-input" onchange="setSpaceMarker('${spaceId}', 'assassinations', this.value)">
+            <option value="" ${!space.markers.assassinations ? "selected" : ""}>None</option>
+            <option value="yellow_red" ${space.markers.assassinations === "yellow_red" ? "selected" : ""}>Yellow / red</option>
+            <option value="brown_black" ${space.markers.assassinations === "brown_black" ? "selected" : ""}>Brown / black</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="walk-block">
+      <div class="field-label">Influence</div>
+      <div class="space-value-grid">
+        ${factionIds.map(id => `<label><span>${esc(factions[id].short)}</span>${numberInputHtml(space.influence[id], `setSpaceValue('${spaceId}', 'influence', '${id}', this.value)`, 0, 99)}</label>`).join("")}
+      </div>
+    </div>
+    <div class="walk-block">
+      <div class="field-label">Units</div>
+      <div class="space-value-grid">
+        ${factionIds.map(id => `<label><span>${esc(factions[id].short)}</span>${numberInputHtml(space.units[id], `setSpaceValue('${spaceId}', 'units', '${id}', this.value)`, 0, 99)}</label>`).join("")}
+      </div>
+    </div>
+    <div class="walk-block">
+      <div class="field-label">Markers</div>
+      <div class="choice-grid">
+        <div>
+          <div class="context-label">Strike</div>
+          <div class="segmented two">
+            <button class="${space.markers.strike ? "selected" : ""}" onclick="setSpaceMarker('${spaceId}', 'strike', true)">On</button>
+            <button class="${!space.markers.strike ? "selected" : ""}" onclick="setSpaceMarker('${spaceId}', 'strike', false)">Off</button>
+          </div>
+        </div>
+        <div>
+          <div class="context-label">Uprising</div>
+          <div class="segmented two">
+            <button class="${space.markers.uprising ? "selected danger" : ""}" onclick="setSpaceMarker('${spaceId}', 'uprising', true)">On</button>
+            <button class="${!space.markers.uprising ? "selected" : ""}" onclick="setSpaceMarker('${spaceId}', 'uprising', false)">Off</button>
+          </div>
+        </div>
+        <div>
+          <div class="context-label">Reform</div>
+          <div class="segmented two">
+            <button class="${space.markers.reform ? "selected" : ""}" onclick="setSpaceMarker('${spaceId}', 'reform', true)">On</button>
+            <button class="${!space.markers.reform ? "selected" : ""}" onclick="setSpaceMarker('${spaceId}', 'reform', false)">Off</button>
+          </div>
+        </div>
+        <div>
+          <div class="context-label">Yellow Leverage</div>
+          <div class="segmented two">
+            <button class="${space.markers.yellowLeverage ? "selected" : ""}" onclick="setSpaceMarker('${spaceId}', 'yellowLeverage', true)">On</button>
+            <button class="${!space.markers.yellowLeverage ? "selected" : ""}" onclick="setSpaceMarker('${spaceId}', 'yellowLeverage', false)">Off</button>
+          </div>
+        </div>
+        <div>
+          <div class="context-label">Black Leverage</div>
+          <div class="segmented two">
+            <button class="${space.markers.blackLeverage ? "selected danger" : ""}" onclick="setSpaceMarker('${spaceId}', 'blackLeverage', true)">On</button>
+            <button class="${!space.markers.blackLeverage ? "selected" : ""}" onclick="setSpaceMarker('${spaceId}', 'blackLeverage', false)">Off</button>
+          </div>
+        </div>
+        <div>
+          <div class="context-label">KPD Cadre</div>
+          ${numberInputHtml(space.markers.kpdCadre, `setSpaceMarker('${spaceId}', 'kpdCadre', this.value)`, 0, 9)}
+        </div>
+        <div>
+          <div class="context-label">NSDAP Cadre</div>
+          ${numberInputHtml(space.markers.nsdapCadre, `setSpaceMarker('${spaceId}', 'nsdapCadre', this.value)`, 0, 9)}
+        </div>
+        <div>
+          <div class="context-label">Conservative Clique</div>
+          ${numberInputHtml(space.markers.conservativeClique, `setSpaceMarker('${spaceId}', 'conservativeClique', this.value)`, 0, 9)}
+        </div>
+      </div>
+    </div>
+    <div class="walk-block">
+      <div class="field-label">Space notes</div>
+      <input class="text-input compact-input" value="${esc(space.notes)}" oninput="setSpaceNotes('${spaceId}', this.value)" placeholder="Local restriction, adjacency reminder, unresolved combat note">
+    </div>
+  </details>`;
 }
 
 function boardStateControlsHtml() {
@@ -2802,7 +3488,8 @@ function boardStateControlsHtml() {
       <div class="context-label">Scenario setup checklist</div>
       ${listHtml(board.scenarioSetup.split("\n").filter(Boolean))}
     </div>` : ""}
-  </div>`;
+  </div>
+  ${spaceEditorHtml()}`;
 }
 
 function boardStateCompactHtml() {
@@ -3751,13 +4438,13 @@ function renderDashboard(app) {
     <section class="panel">
       <div class="section-head">
         <div>
-          <div class="kicker">Play Log</div>
-          <h2>In-game choices</h2>
-          <p class="muted">Recorded human and bot decisions stay with the autosaved game state.</p>
+          <div class="kicker">Board Monitor</div>
+          <h2>Tracked board state</h2>
+          <p class="muted">Menus update tracks, map spaces, markers, Influence, and units as each faction action resolves.</p>
         </div>
-        ${badge(`${state.choiceLog.length} saved`, state.choiceLog.length ? "good" : "")}
+        ${badge(`${Object.keys(state.boardState.spaces || {}).length} spaces`, "good")}
       </div>
-      ${choiceLogHtml()}
+      ${boardMonitorSummaryHtml()}
     </section>
 
     <section class="panel source-panel">
@@ -3912,17 +4599,6 @@ function renderSaveLoad(app) {
       <textarea oninput="updateSaveLoadText(this.value)" placeholder="Exported JSON appears here. Paste JSON here to import.">${esc(state.saveLoadText)}</textarea>
     </section>
 
-    <section class="panel">
-      <div class="section-head">
-        <div>
-          <div class="kicker">Play Log</div>
-          <h2>Recorded choices</h2>
-        </div>
-        ${badge(`${state.choiceLog.length} saved`, state.choiceLog.length ? "good" : "")}
-      </div>
-      ${choiceLogHtml(20)}
-    </section>
-
     <div class="sticky-actions">
       ${btn("Dashboard", "setScreen('dashboard')", "primary")}
       ${btn("Reset", "resetApp()")}
@@ -4006,6 +4682,14 @@ window.setSequenceAnswer = setSequenceAnswer;
 window.updateChoiceDraft = updateChoiceDraft;
 window.recordChoice = recordChoice;
 window.deleteChoiceLogEntry = deleteChoiceLogEntry;
+window.updateEffectDraft = updateEffectDraft;
+window.applyBoardEffect = applyBoardEffect;
+window.setSelectedSpace = setSelectedSpace;
+window.setSpacePopulation = setSpacePopulation;
+window.setSpaceControl = setSpaceControl;
+window.setSpaceValue = setSpaceValue;
+window.setSpaceMarker = setSpaceMarker;
+window.setSpaceNotes = setSpaceNotes;
 window.toggleSequenceCheck = toggleSequenceCheck;
 window.continueSequence = continueSequence;
 window.jumpToSequencePhase = jumpToSequencePhase;

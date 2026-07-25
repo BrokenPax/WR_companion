@@ -176,8 +176,18 @@ textarea{width:100%;min-height:150px;border:1px solid var(--line);border-radius:
 .action-detail.check{border-top:5px solid var(--gold)}
 .action-detail.blocked{border-top:5px solid var(--red)}
 .detail-grid{display:grid;gap:12px;margin-top:12px}
-.choice-tracker{border:1px solid var(--line);border-radius:8px;background:white;padding:12px;margin-top:14px}
+.choice-tracker,.board-effect-panel{border:1px solid var(--line);border-radius:8px;background:white;padding:12px;margin-top:14px}
 .choice-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.mode-tabs{grid-template-columns:repeat(6,minmax(0,1fr));margin:10px 0}
+.number-input{width:100%;margin-bottom:0}
+.space-snapshot{display:grid;gap:8px;margin-top:10px}
+.space-row{display:grid;gap:7px;border:1px solid var(--line);border-radius:8px;background:#fffaf0;padding:10px}
+.space-row>div:first-child{display:flex;justify-content:space-between;gap:8px;color:var(--ink)}
+.space-row>div:first-child span{color:var(--muted);font-size:12px;font-weight:850}
+.map-space-editor{margin-top:14px}
+.space-value-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.space-value-grid label{display:grid;gap:5px;font-size:12px;font-weight:850;color:var(--muted)}
+.board-monitor-summary .sequence-actions{margin-top:12px}
 .choice-log{display:grid;gap:8px}
 .choice-entry{border:1px solid var(--line);border-radius:8px;background:#fffaf0;padding:10px}
 .choice-entry p{color:var(--muted);font-size:13px;line-height:1.35;margin-top:6px}
@@ -245,7 +255,8 @@ textarea{width:100%;min-height:150px;border:1px solid var(--line);border-radius:
   .grid2,.grid4,.faction-tabs{grid-template-columns:1fr}
   .sticky-actions{grid-template-columns:repeat(4,minmax(0,1fr));bottom:6px}
   .sticky-actions .btn{font-size:12px;padding:7px 6px;min-height:36px}
-  .option-grid,.action-slots,.context-grid,.action-card-grid,.board-state-grid,.controller-grid,.priority-row,.slot-actions,.turn-order-grid,.choice-grid{grid-template-columns:1fr}
+  .option-grid,.action-slots,.context-grid,.action-card-grid,.board-state-grid,.controller-grid,.priority-row,.slot-actions,.turn-order-grid,.choice-grid,.space-value-grid{grid-template-columns:1fr}
+  .mode-tabs{grid-template-columns:repeat(2,minmax(0,1fr))}
   .compact-action-list{max-height:230px;overflow:auto;padding:2px}
   .priority-row{display:flex;overflow:auto;padding-bottom:2px}
   .priority-row span{flex:0 0 72%}
@@ -275,6 +286,6 @@ textarea{width:100%;min-height:150px;border:1px solid var(--line);border-radius:
   </div></div>
   <main class="wrap" id="app"></main>
 </div>
-<script src="app.js?v=phase-15-choice-log"></script>
+<script src="app.js?v=phase-16-board-monitor"></script>
 </body>
 </html>
