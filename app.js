@@ -1,5 +1,5 @@
 const APP_NAME = "The Weimar Republic Companion";
-const APP_BUILD = "phase-24-piece-clarity";
+const APP_BUILD = "phase-25-piece-corrections";
 const LOCAL_SAVE_KEY = "wr-companion-state-v6";
 const AUTO_SAVE_DELAY_MS = 350;
 
@@ -286,9 +286,9 @@ const controlOptions = [["uncontrolled", "Uncontrolled"], ...factionIds.map(id =
 
 const unitPieces = {
   coalition: { label: "Reichs/FK", full: "Coalition Reichswehr/Freikorps units" },
-  kpd: { label: "Militia", full: "KPD Worker Militia units" },
+  kpd: { label: "Militia", full: "KPD Worker Militia units; five-point yellow star on red" },
   nsdap: { label: "SA", full: "NSDAP SA units" },
-  radical_conservatives: { label: "Rogue FK", full: "Radical Conservative Rogue Freikorps units" }
+  radical_conservatives: { label: "Rogue FK", full: "Radical Conservative Rogue Freikorps units; skull/crossbones without yellow border" }
 };
 
 function guideSpace({ c = 0, k = 0, n = 0, r = 0, cu = 0, ku = 0, nu = 0, ru = 0, kc = 0, nc = 0, cc = 0, sup = "", strike = false, uprising = false, yl = 0, bl = 0, assassinations = "", tokens = [], notes = "" } = {}) {
@@ -341,7 +341,7 @@ const scenarioSpaceSetups = {
     provinz_westfalen: guideSpace({ c: 4, k: 3 }),
     sachsen: guideSpace({ k: 2, ku: 1, sup: "kpd", strike: true, tokens: ["KPD unit strength 1"] }),
     rheinprovinz: guideSpace({ c: 5, k: 4 }),
-    bayern: guideSpace({ c: 2, k: 3, n: 1, r: 5, ru: 1, nc: 1, sup: "coalition", bl: 2, tokens: ["RC unit block"], notes: "Graphic Guide A shows two black Leverage markers." }),
+    bayern: guideSpace({ c: 2, k: 3, n: 1, r: 5, ku: 1, ru: 1, cc: 1, sup: "coalition", bl: 2, notes: "Graphic Guide A shows two black Leverage markers. KPD Militia is the five-point yellow star on red; Rogue Freikorps is skull/crossbones without yellow border." }),
     muenchen: guideSpace({ c: 1, k: 1, n: 1, r: 1, cu: 1, ku: 1, nu: 1, nc: 1, sup: "coalition", tokens: ["Coalition unit strength 2", "KPD unit strength 2", "NSDAP unit strength 1"] }),
     berlin: guideSpace({ c: 2, k: 2, r: 2, cu: 2, ku: 2, ru: 2, kc: 1, sup: "coalition", tokens: ["Coalition unit strength 2 x2", "KPD unit strength 1 x2", "RC unit strength 2 x2"] })
   },
@@ -359,7 +359,7 @@ const scenarioSpaceSetups = {
     mecklenburg: guideSpace({ c: 1 }),
     pommern: guideSpace({ r: 1 }),
     posen_westpreussen: guideSpace({ r: 1 }),
-    ostpreussen: guideSpace({ r: 2, ru: 1, tokens: ["RC unit block"] }),
+    ostpreussen: guideSpace({ r: 2, ru: 1, cc: 1 }),
     oldenburg: guideSpace({ c: 1 }),
     provinz_hannover: guideSpace({ c: 2 }),
     provinz_sachsen: guideSpace({ c: 2 }),
@@ -376,7 +376,7 @@ const scenarioSpaceSetups = {
     hessen: guideSpace({ c: 1 }),
     baden: guideSpace({ c: 2, r: 1 }),
     wuerttemberg: guideSpace({ c: 2, r: 1 }),
-    bayern: guideSpace({ c: 4, k: 2, n: 1, r: 2, ru: 1, bl: 1, tokens: ["RC unit block"] }),
+    bayern: guideSpace({ c: 4, k: 2, n: 1, r: 2, ru: 1, cc: 1, bl: 1 }),
     hamburg: guideSpace({ c: 1 }),
     koeln: guideSpace({ c: 1 }),
     muenchen: guideSpace({ c: 1, n: 1, r: 1, cu: 1, nc: 1, sup: "nsdap", tokens: ["Coalition unit strength 1"] }),
@@ -387,7 +387,7 @@ const scenarioSpaceSetups = {
     mecklenburg: guideSpace({ c: 1 }),
     pommern: guideSpace({ c: 1, r: 1 }),
     posen_westpreussen: guideSpace({ c: 1, r: 1 }),
-    ostpreussen: guideSpace({ r: 2, ru: 1, sup: "radical_conservatives", bl: 1, tokens: ["RC unit strength 2", "RC unit block"], notes: "Graphic Guide D also shows a strength-2 token." }),
+    ostpreussen: guideSpace({ r: 2, ru: 1, cc: 1, sup: "radical_conservatives", bl: 1, tokens: ["RC unit strength 2"], notes: "Graphic Guide D also shows a strength-2 Rogue Freikorps token." }),
     oldenburg: guideSpace({ c: 1 }),
     provinz_hannover: guideSpace({ c: 2 }),
     provinz_sachsen: guideSpace({ c: 2 }),
@@ -404,7 +404,7 @@ const scenarioSpaceSetups = {
     hessen: guideSpace({ c: 1 }),
     baden: guideSpace({ c: 2, r: 2 }),
     wuerttemberg: guideSpace({ c: 2, r: 2 }),
-    bayern: guideSpace({ c: 4, k: 1, n: 2, r: 4, cu: 1, ku: 1, ru: 1, sup: "radical_conservatives", bl: 1, tokens: ["KPD unit strength 2", "Coalition unit strength 1", "RC unit block"] }),
+    bayern: guideSpace({ c: 4, k: 1, n: 2, r: 4, cu: 1, ku: 1, ru: 1, cc: 1, sup: "radical_conservatives", bl: 1, tokens: ["KPD unit strength 2", "Coalition unit strength 1"] }),
     hamburg: guideSpace({ c: 1, ku: 1, sup: "kpd", tokens: ["KPD unit strength 1"] }),
     koeln: guideSpace({ c: 1, k: 1, ku: 2, kc: 1, sup: "kpd", tokens: ["KPD unit strength 1 x2"] }),
     muenchen: guideSpace({ c: 2, n: 1, r: 1, cu: 1, nu: 1, nc: 1, sup: "coalition", tokens: ["Coalition unit strength 1", "Coalition unit strength 3", "NSDAP unit strength 1"] }),
@@ -3656,7 +3656,7 @@ function spaceMarkerTokensHtml(space) {
     booleanMarkerTokenHtml(space.markers.reform, "Reform", "reform"),
     visualTokenHtml("KPD Cadre", space.markers.kpdCadre, "cadre kpd", "KPD Cadres"),
     visualTokenHtml("NSDAP Cadre", space.markers.nsdapCadre, "cadre nsdap", "NSDAP Cadres"),
-    visualTokenHtml("Clique", space.markers.conservativeClique, "cadre radcon", "Conservative Cliques"),
+    visualTokenHtml("Cons. Clique", space.markers.conservativeClique, "cadre radcon", "Conservative Cliques"),
     visualTokenHtml("Yellow Leverage", space.markers.yellowLeverage, "marker yellow-leverage", "Yellow Leverage markers"),
     visualTokenHtml("Black Leverage", space.markers.blackLeverage, "marker black-leverage", "Black Leverage markers"),
     space.markers.assassinations ? `<span class="visual-marker assassinations">${space.markers.assassinations === "brown_black" ? "Brown/black" : "Yellow/red"} Assassinations</span>` : ""
@@ -3728,7 +3728,7 @@ function pieceLegendHtml() {
     <div class="walk-block">
       <div class="field-label">Markers</div>
       <div class="pill-list">
-        <span>Conservative Clique: RC marker, not a unit</span>
+        <span>Conservative Clique: RC marker, not a Rogue Freikorps unit</span>
         <span>Yellow Leverage: Coalition map Leverage</span>
         <span>Black Leverage: Radical Conservative map Leverage</span>
         <span>Cadres: KPD or NSDAP cadre markers</span>
