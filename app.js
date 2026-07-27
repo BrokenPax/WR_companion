@@ -1,5 +1,5 @@
 const APP_NAME = "The Weimar Republic Companion";
-const APP_BUILD = "phase-25-piece-corrections";
+const APP_BUILD = "phase-28-sv-supremacy";
 const LOCAL_SAVE_KEY = "wr-companion-state-v6";
 const AUTO_SAVE_DELAY_MS = 350;
 
@@ -285,17 +285,22 @@ const spaceAliases = {
 const controlOptions = [["uncontrolled", "Uncontrolled"], ...factionIds.map(id => [id, factions[id].short])];
 
 const unitPieces = {
-  coalition: { label: "Reichs/FK", full: "Coalition Reichswehr/Freikorps units" },
-  kpd: { label: "Militia", full: "KPD Worker Militia units; five-point yellow star on red" },
-  nsdap: { label: "SA", full: "NSDAP SA units" },
-  radical_conservatives: { label: "Rogue FK", full: "Radical Conservative Rogue Freikorps units; skull/crossbones without yellow border" }
+  coalition: { label: "Coalition FK", strength: 2, full: "Coalition Freikorps unit; skull/crossbones with yellow border; SV 2" },
+  kpd: { label: "Militia", strength: 1, full: "KPD Worker Militia units; five-point yellow star on red; SV 1" },
+  nsdap: { label: "SA", strength: 1, full: "NSDAP SA unit; brown background with SA initials inside a white circle; SV 1" },
+  radical_conservatives: { label: "Rogue FK", strength: 2, full: "Radical Conservative Rogue Freikorps units; skull/crossbones without yellow border; SV 2" }
 };
 
-function guideSpace({ c = 0, k = 0, n = 0, r = 0, cu = 0, ku = 0, nu = 0, ru = 0, kc = 0, nc = 0, cc = 0, sup = "", strike = false, uprising = false, yl = 0, bl = 0, assassinations = "", tokens = [], notes = "" } = {}) {
+const specialUnitPieces = {
+  reichswehr: { label: "Reichswehr", strength: 3, full: "Coalition Reichswehr unit; yellow background with iron cross; SV 3", faction: "coalition" }
+};
+
+function guideSpace({ c = 0, k = 0, n = 0, r = 0, cu = 0, rw = 0, ku = 0, nu = 0, ru = 0, kc = 0, nc = 0, cc = 0, sup = "", strike = false, uprising = false, yl = 0, bl = 0, assassinations = "", tokens = [], notes = "" } = {}) {
   return {
     supremacy: sup,
     influence: { coalition: c, kpd: k, nsdap: n, radical_conservatives: r },
     units: { coalition: cu, kpd: ku, nsdap: nu, radical_conservatives: ru },
+    specialUnits: { reichswehr: rw },
     guideTokens: tokens,
     markers: {
       strike,
@@ -331,35 +336,35 @@ const guideCommonCrisisNorth = {
   baden: guideSpace({ c: 2, r: 1 }),
   wuerttemberg: guideSpace({ c: 1, r: 1 }),
   hamburg: guideSpace({ c: 1 }),
-  koeln: guideSpace({ c: 1, cu: 1, sup: "coalition", tokens: ["Coalition unit strength 2"] }),
-  muenchen: guideSpace({ c: 1, k: 1, n: 1, r: 1, cu: 1, sup: "coalition", tokens: ["Coalition unit strength 2"] })
+  koeln: guideSpace({ c: 1, cu: 1, sup: "coalition", tokens: ["Coalition FK strength 2"] }),
+  muenchen: guideSpace({ c: 1, k: 1, n: 1, r: 1, cu: 1, sup: "coalition", tokens: ["Coalition FK strength 2"] })
 };
 
 const scenarioSpaceSetups = {
   tutorial_1921: {
     ...guideCommonCrisisNorth,
     provinz_westfalen: guideSpace({ c: 4, k: 3 }),
-    sachsen: guideSpace({ k: 2, ku: 1, sup: "kpd", strike: true, tokens: ["KPD unit strength 1"] }),
+    sachsen: guideSpace({ k: 2, ku: 1, sup: "kpd", strike: true, tokens: ["KPD Militia strength 1"] }),
     rheinprovinz: guideSpace({ c: 5, k: 4 }),
-    bayern: guideSpace({ c: 2, k: 3, n: 1, r: 5, ku: 1, ru: 1, cc: 1, sup: "coalition", bl: 2, notes: "Graphic Guide A shows two black Leverage markers. KPD Militia is the five-point yellow star on red; Rogue Freikorps is skull/crossbones without yellow border." }),
-    muenchen: guideSpace({ c: 1, k: 1, n: 1, r: 1, cu: 1, ku: 1, nu: 1, nc: 1, sup: "coalition", tokens: ["Coalition unit strength 2", "KPD unit strength 2", "NSDAP unit strength 1"] }),
-    berlin: guideSpace({ c: 2, k: 2, r: 2, cu: 2, ku: 2, ru: 2, kc: 1, sup: "coalition", tokens: ["Coalition unit strength 2 x2", "KPD unit strength 1 x2", "RC unit strength 2 x2"] })
+    bayern: guideSpace({ c: 2, k: 3, n: 1, r: 5, cu: 1, ku: 1, cc: 1, sup: "coalition", bl: 2, notes: "Graphic Guide A shows two black Leverage markers. KPD Militia is the five-point yellow star on red; Coalition FK is the skull/crossbones counter with a yellow border." }),
+    muenchen: guideSpace({ c: 1, k: 1, n: 1, r: 1, cu: 1, ku: 1, nu: 1, nc: 1, sup: "coalition", tokens: ["Coalition FK strength 2", "KPD Militia strength 2", "NSDAP SA strength 1"] }),
+    berlin: guideSpace({ c: 2, k: 2, r: 2, cu: 2, ku: 2, ru: 2, kc: 1, sup: "coalition", tokens: ["Coalition FK strength 2 x2", "KPD Militia strength 1 x2", "Rogue FK strength 2 x2"] })
   },
   revolution_1919: {
     ...guideCommonCrisisNorth,
     provinz_westfalen: guideSpace({ c: 4, k: 2 }),
     sachsen: guideSpace({ k: 1 }),
     rheinprovinz: guideSpace({ c: 5, k: 3 }),
-    bayern: guideSpace({ c: 4, k: 2, r: 3, ru: 1 }),
-    muenchen: guideSpace({ c: 1, k: 1, n: 1, r: 1, cu: 1, sup: "coalition", tokens: ["Coalition unit strength 2"] }),
-    berlin: guideSpace({ c: 2, k: 2, r: 1, cu: 2, ku: 1, ru: 1, sup: "coalition", tokens: ["Coalition unit strength 2 x2", "KPD unit strength 1", "RC unit strength 2"] })
+    bayern: guideSpace({ c: 4, k: 2, r: 3, ru: 1, notes: "Rogue FK is the skull/crossbones counter without a yellow border." }),
+    muenchen: guideSpace({ c: 1, k: 1, n: 1, r: 1, cu: 1, sup: "coalition", tokens: ["Coalition FK strength 2"] }),
+    berlin: guideSpace({ c: 2, k: 2, r: 1, cu: 2, ku: 1, ru: 1, sup: "coalition", tokens: ["Coalition FK strength 2 x2", "KPD Militia strength 1", "Rogue FK strength 2"] })
   },
   new_hope_1924: {
     schleswig_holstein: guideSpace({ c: 1, r: 1 }),
     mecklenburg: guideSpace({ c: 1 }),
     pommern: guideSpace({ r: 1 }),
     posen_westpreussen: guideSpace({ r: 1 }),
-    ostpreussen: guideSpace({ r: 2, ru: 1, cc: 1 }),
+    ostpreussen: guideSpace({ r: 2, cc: 1 }),
     oldenburg: guideSpace({ c: 1 }),
     provinz_hannover: guideSpace({ c: 2 }),
     provinz_sachsen: guideSpace({ c: 2 }),
@@ -376,18 +381,18 @@ const scenarioSpaceSetups = {
     hessen: guideSpace({ c: 1 }),
     baden: guideSpace({ c: 2, r: 1 }),
     wuerttemberg: guideSpace({ c: 2, r: 1 }),
-    bayern: guideSpace({ c: 4, k: 2, n: 1, r: 2, ru: 1, cc: 1, bl: 1 }),
+    bayern: guideSpace({ c: 4, k: 2, n: 1, r: 2, cc: 1, bl: 1 }),
     hamburg: guideSpace({ c: 1 }),
     koeln: guideSpace({ c: 1 }),
-    muenchen: guideSpace({ c: 1, n: 1, r: 1, cu: 1, nc: 1, sup: "nsdap", tokens: ["Coalition unit strength 1"] }),
-    berlin: guideSpace({ c: 3, k: 2, r: 1, cu: 1, ku: 1, ru: 1, kc: 1, sup: "coalition", tokens: ["Coalition unit strength 3", "KPD unit strength 1", "RC unit strength 2"] })
+    muenchen: guideSpace({ c: 1, n: 1, r: 1, cu: 1, nc: 1, sup: "nsdap", tokens: ["Coalition FK strength 1"] }),
+    berlin: guideSpace({ c: 3, k: 2, r: 1, cu: 1, ku: 1, ru: 1, kc: 1, sup: "coalition", tokens: ["Coalition FK strength 3", "KPD Militia strength 1", "Rogue FK strength 2"] })
   },
   black_sun_1928: {
     schleswig_holstein: guideSpace({ c: 1 }),
     mecklenburg: guideSpace({ c: 1 }),
     pommern: guideSpace({ c: 1, r: 1 }),
     posen_westpreussen: guideSpace({ c: 1, r: 1 }),
-    ostpreussen: guideSpace({ r: 2, ru: 1, cc: 1, sup: "radical_conservatives", bl: 1, tokens: ["RC unit strength 2"], notes: "Graphic Guide D also shows a strength-2 Rogue Freikorps token." }),
+    ostpreussen: guideSpace({ r: 2, ru: 1, cc: 1, sup: "radical_conservatives", bl: 1, tokens: ["Rogue FK strength 2"], notes: "Graphic Guide D also shows a strength-2 Rogue Freikorps token." }),
     oldenburg: guideSpace({ c: 1 }),
     provinz_hannover: guideSpace({ c: 2 }),
     provinz_sachsen: guideSpace({ c: 2 }),
@@ -404,20 +409,20 @@ const scenarioSpaceSetups = {
     hessen: guideSpace({ c: 1 }),
     baden: guideSpace({ c: 2, r: 2 }),
     wuerttemberg: guideSpace({ c: 2, r: 2 }),
-    bayern: guideSpace({ c: 4, k: 1, n: 2, r: 4, cu: 1, ku: 1, ru: 1, cc: 1, sup: "radical_conservatives", bl: 1, tokens: ["KPD unit strength 2", "Coalition unit strength 1"] }),
-    hamburg: guideSpace({ c: 1, ku: 1, sup: "kpd", tokens: ["KPD unit strength 1"] }),
-    koeln: guideSpace({ c: 1, k: 1, ku: 2, kc: 1, sup: "kpd", tokens: ["KPD unit strength 1 x2"] }),
-    muenchen: guideSpace({ c: 2, n: 1, r: 1, cu: 1, nu: 1, nc: 1, sup: "coalition", tokens: ["Coalition unit strength 1", "Coalition unit strength 3", "NSDAP unit strength 1"] }),
-    berlin: guideSpace({ c: 3, k: 1, n: 1, r: 1, cu: 1, ku: 1, ru: 1, yl: 1, sup: "coalition", tokens: ["Coalition unit strength 1", "Coalition unit strength 3", "KPD unit strength 1", "RC unit strength 2"] })
+    bayern: guideSpace({ c: 4, k: 1, n: 2, r: 4, cu: 1, ku: 1, cc: 1, sup: "radical_conservatives", bl: 1, tokens: ["KPD Militia strength 2", "Coalition FK strength 1"] }),
+    hamburg: guideSpace({ c: 1, ku: 1, sup: "kpd", tokens: ["KPD Militia strength 1"] }),
+    koeln: guideSpace({ c: 1, k: 1, ku: 2, kc: 1, sup: "kpd", tokens: ["KPD Militia strength 1 x2"] }),
+    muenchen: guideSpace({ c: 2, n: 1, r: 1, cu: 1, nu: 1, nc: 1, sup: "coalition", tokens: ["Coalition FK strength 1", "Coalition FK strength 3", "NSDAP SA strength 1"] }),
+    berlin: guideSpace({ c: 3, k: 1, n: 1, r: 1, cu: 1, ku: 1, ru: 1, yl: 1, sup: "coalition", tokens: ["Coalition FK strength 1", "Coalition FK strength 3", "KPD Militia strength 1", "Rogue FK strength 2"] })
   },
   fate_1919: {
     ...guideCommonCrisisNorth,
     provinz_westfalen: guideSpace({ c: 4, k: 2 }),
     sachsen: guideSpace({ k: 1 }),
     rheinprovinz: guideSpace({ c: 5, k: 3 }),
-    bayern: guideSpace({ c: 4, k: 2, r: 3, ru: 1 }),
-    muenchen: guideSpace({ c: 1, k: 1, n: 1, r: 1, cu: 1, sup: "coalition", tokens: ["Coalition unit strength 2"] }),
-    berlin: guideSpace({ c: 2, k: 2, r: 1, cu: 2, ku: 1, ru: 1, sup: "coalition", tokens: ["Coalition unit strength 2 x2", "KPD unit strength 1", "RC unit strength 2"] })
+    bayern: guideSpace({ c: 4, k: 2, r: 3, ru: 1, notes: "Rogue FK is the skull/crossbones counter without a yellow border." }),
+    muenchen: guideSpace({ c: 1, k: 1, n: 1, r: 1, cu: 1, sup: "coalition", tokens: ["Coalition FK strength 2"] }),
+    berlin: guideSpace({ c: 2, k: 2, r: 1, cu: 2, ku: 1, ru: 1, sup: "coalition", tokens: ["Coalition FK strength 2 x2", "KPD Militia strength 1", "Rogue FK strength 2"] })
   }
 };
 
@@ -766,7 +771,7 @@ const factionActions = {
       citation: "6.3",
       summary: "Place one Coalition Freikorps or Reichswehr unit.",
       context: ["unit_available"],
-      requires: ["An Available Coalition unit.", "Target space has Coalition Parliamentary Control or Coalition Dominance."]
+      requires: ["An Available Coalition FK or Reichswehr unit.", "Target space has Coalition Parliamentary Control or Coalition Dominance."]
     },
     {
       id: "remove_influence",
@@ -861,7 +866,7 @@ const factionActions = {
       citation: "6.4",
       summary: "Place one Worker Militia unit.",
       context: ["unit_available"],
-      requires: ["An Available Worker Militia.", "Target has KPD Dominance, KPD Parliamentary Control, or a KPD Cadre."],
+      requires: ["An Available KPD Worker Militia unit.", "Target has KPD Dominance, KPD Parliamentary Control, or a KPD Cadre."],
       warnings: ["If placed with NSDAP SA, KPD must immediately conduct a free Assault against NSDAP."]
     },
     {
@@ -943,7 +948,7 @@ const factionActions = {
       citation: "6.5",
       summary: "Place one SA unit.",
       context: ["unit_available"],
-      requires: ["An Available SA unit.", "Target has NSDAP Parliamentary Control, NSDAP Dominance, or an NSDAP Cadre."],
+      requires: ["An Available NSDAP SA unit.", "Target has NSDAP Parliamentary Control, NSDAP Dominance, or an NSDAP Cadre."],
       warnings: ["If placed with KPD Worker Militia, NSDAP must immediately conduct a free Assault against KPD."]
     },
     {
@@ -1446,6 +1451,7 @@ function blankSpaceState(spaceId) {
     supremacy: "",
     influence: Object.fromEntries(factionIds.map(id => [id, 0])),
     units: Object.fromEntries(factionIds.map(id => [id, 0])),
+    specialUnits: { reichswehr: 0 },
     guideTokens: [],
     markers: {
       strike: false,
@@ -1466,6 +1472,7 @@ function normalizeSpaceState(spaceId, existing = {}) {
   const base = blankSpaceState(spaceId);
   const influence = existing.influence && typeof existing.influence === "object" ? existing.influence : {};
   const units = existing.units && typeof existing.units === "object" ? existing.units : {};
+  const specialUnits = existing.specialUnits && typeof existing.specialUnits === "object" ? existing.specialUnits : {};
   const markers = existing.markers && typeof existing.markers === "object" ? existing.markers : {};
   const guideTokens = Array.isArray(existing.guideTokens) ? existing.guideTokens : [];
   return {
@@ -1476,6 +1483,9 @@ function normalizeSpaceState(spaceId, existing = {}) {
     supremacy: controlOptions.some(([id]) => id === existing.supremacy) ? existing.supremacy : "",
     influence: Object.fromEntries(factionIds.map(id => [id, clampInt(influence[id], 0, 99)])),
     units: Object.fromEntries(factionIds.map(id => [id, clampInt(units[id], 0, 99)])),
+    specialUnits: {
+      reichswehr: clampInt(specialUnits.reichswehr, 0, 99)
+    },
     guideTokens: guideTokens.map(token => String(token || "").trim()).filter(Boolean).slice(0, 24),
     markers: {
       strike: !!markers.strike,
@@ -1502,6 +1512,7 @@ function defaultSpacesForScenario(scenarioId = "") {
       ...seed,
       influence: { ...spaces[spaceId].influence, ...(seed.influence || {}) },
       units: { ...spaces[spaceId].units, ...(seed.units || {}) },
+      specialUnits: { ...spaces[spaceId].specialUnits, ...(seed.specialUnits || {}) },
       guideTokens: [...(spaces[spaceId].guideTokens || []), ...(seed.guideTokens || [])],
       markers: { ...spaces[spaceId].markers, ...(seed.markers || {}) },
       notes: [spaces[spaceId].notes, seed.notes].filter(Boolean).join(" | ")
@@ -2133,10 +2144,13 @@ function updateEffectDraft(field, value) {
   if (!allowed.includes(field)) return;
   const context = currentChoiceContext();
   const draft = currentEffectDraft();
-  state.effectDrafts[context.key] = {
+  const nextDraft = {
     ...draft,
     [field]: field === "space" ? normalizeSpaceId(value) : value
   };
+  if (field === "mode" && value === "influence" && !factions[nextDraft.faction]) nextDraft.faction = state.activeFaction;
+  if (field === "mode" && value === "unit" && !factions[nextDraft.faction] && !specialUnitPieces[nextDraft.faction]) nextDraft.faction = state.activeFaction;
+  state.effectDrafts[context.key] = nextDraft;
   if (field === "space") state.boardState.selectedSpace = normalizeSpaceId(value);
   state.boardNotice = "";
   scheduleAutoSave();
@@ -2185,12 +2199,23 @@ function applyBoardEffect() {
   pushHistory();
   let summary = "";
 
-  if (draft.mode === "influence" || draft.mode === "unit") {
+  if (draft.mode === "influence") {
     if (!factions[draft.faction]) return;
-    const group = draft.mode === "unit" ? "units" : "influence";
-    const next = applyNumberOperation(space[group][draft.faction], draft.operation, draft.amount);
-    space[group][draft.faction] = next;
-    summary = `${spaceLabel(spaceId)} ${factions[draft.faction].short} ${group} -> ${next}`;
+    const next = applyNumberOperation(space.influence[draft.faction], draft.operation, draft.amount);
+    space.influence[draft.faction] = next;
+    summary = `${spaceLabel(spaceId)} ${factions[draft.faction].short} influence -> ${next}`;
+  } else if (draft.mode === "unit") {
+    if (specialUnitPieces[draft.faction]) {
+      ensureSpecialUnits(space);
+      const next = applyNumberOperation(space.specialUnits[draft.faction], draft.operation, draft.amount);
+      space.specialUnits[draft.faction] = next;
+      summary = `${spaceLabel(spaceId)} ${unitPieceLabel(draft.faction)} units -> ${next}`;
+    } else {
+      if (!factions[draft.faction]) return;
+      const next = applyNumberOperation(space.units[draft.faction], draft.operation, draft.amount);
+      space.units[draft.faction] = next;
+      summary = `${spaceLabel(spaceId)} ${unitPieceLabel(draft.faction)} units -> ${next}`;
+    }
   } else if (draft.mode === "control") {
     if (!controlOptions.some(([id]) => id === draft.control)) return;
     space.control = draft.control;
@@ -2267,10 +2292,25 @@ function setSpaceSupremacy(spaceId, factionId) {
   render();
 }
 
+function setSpaceSupremacyToCalculated(spaceId) {
+  const space = state.boardState.spaces[normalizeSpaceId(spaceId)];
+  if (!space) return;
+  space.supremacy = calculatedSupremacy(space).faction || "";
+  render();
+}
+
 function setSpaceValue(spaceId, group, factionId, value) {
   const space = state.boardState.spaces[normalizeSpaceId(spaceId)];
   if (!space || !["influence", "units"].includes(group) || !factions[factionId]) return;
   space[group][factionId] = clampInt(value, 0, 99);
+  render();
+}
+
+function setSpaceSpecialUnit(spaceId, unitId, value) {
+  const space = state.boardState.spaces[normalizeSpaceId(spaceId)];
+  if (!space || !specialUnitPieces[unitId]) return;
+  ensureSpecialUnits(space);
+  space.specialUnits[unitId] = clampInt(value, 0, 99);
   render();
 }
 
@@ -2966,6 +3006,27 @@ function factionOptionsHtml(selectedId) {
   return factionIds.map(id => `<option value="${id}" ${selectedId === id ? "selected" : ""}>${esc(factions[id].short)}</option>`).join("");
 }
 
+function unitPieceOptionsHtml(selectedId) {
+  const options = [
+    ...Object.entries(specialUnitPieces).map(([id, unit]) => [id, unit.label]),
+    ...factionIds.map(id => [id, unitPieces[id].label])
+  ];
+  return selectOptionsHtml(options, selectedId);
+}
+
+function unitPieceLabel(pieceId) {
+  if (specialUnitPieces[pieceId]) return specialUnitPieces[pieceId].label;
+  if (unitPieces[pieceId]) return unitPieces[pieceId].label;
+  return pieceId;
+}
+
+function ensureSpecialUnits(space) {
+  if (!space.specialUnits || typeof space.specialUnits !== "object") space.specialUnits = { reichswehr: 0 };
+  Object.keys(specialUnitPieces).forEach(id => {
+    if (!Number.isFinite(Number(space.specialUnits[id]))) space.specialUnits[id] = 0;
+  });
+}
+
 function momentumButtonsHtml() {
   return `<div class="grid4">
     ${factionIds.map(id => btn(factions[id].short, `setMomentumFaction('${id}')`, state.momentumFaction === id ? "primary" : "")).join("")}
@@ -3239,14 +3300,15 @@ function effectFieldsHtml(draft) {
   </div>`;
 
   if (draft.mode === "influence" || draft.mode === "unit") {
+    const isUnit = draft.mode === "unit";
     return `<div class="choice-grid">
       ${spacePicker}
       <div>
-        <div class="context-label">Faction</div>
-        <select class="select-input" onchange="updateEffectDraft('faction', this.value)">${factionOptionsHtml(draft.faction)}</select>
+        <div class="context-label">${isUnit ? "Piece" : "Faction"}</div>
+        <select class="select-input" onchange="updateEffectDraft('faction', this.value)">${isUnit ? unitPieceOptionsHtml(draft.faction) : factionOptionsHtml(draft.faction)}</select>
       </div>
       <div>
-        <div class="context-label">${draft.mode === "unit" ? "Unit" : "Influence"} change</div>
+        <div class="context-label">${isUnit ? "Unit" : "Influence"} change</div>
         <select class="select-input" onchange="updateEffectDraft('operation', this.value)">
           <option value="add" ${draft.operation === "add" ? "selected" : ""}>Add</option>
           <option value="remove" ${draft.operation === "remove" ? "selected" : ""}>Remove</option>
@@ -3533,7 +3595,7 @@ function derivedContextValue(key) {
   if (key === "conservative_clique_available") return spaces.some(space => Number(space.markers?.conservativeClique) > 0) || state.actionContext[key];
   if (key === "assassination_available") return spaces.some(space => space.markers?.assassinations) || state.actionContext[key];
   if (key === "leverage_available") return spaces.some(space => space.markers?.yellowLeverage || space.markers?.blackLeverage) || state.actionContext[key];
-  if (key === "unit_available") return spaces.some(space => factionIds.some(id => Number(space.units?.[id]) > 0)) || state.actionContext[key];
+  if (key === "unit_available") return spaces.some(spaceHasUnits) || state.actionContext[key];
   return state.actionContext[key];
 }
 
@@ -3605,12 +3667,61 @@ function spaceValidity(space) {
   return { ok: issues.length === 0, issues, totalInfluence, population, politicalValue };
 }
 
+function factionUnitSv(space, factionId) {
+  const mapUnits = Number(space.units?.[factionId] || 0) * Number(unitPieces[factionId]?.strength || 0);
+  const specialUnits = Object.entries(specialUnitPieces).reduce((sum, [unitId, unit]) => {
+    if (unit.faction !== factionId) return sum;
+    return sum + Number(space.specialUnits?.[unitId] || 0) * Number(unit.strength || 0);
+  }, 0);
+  return mapUnits + specialUnits;
+}
+
+function unitSvBreakdown(space, factionId) {
+  const parts = [];
+  const mapCount = Number(space.units?.[factionId] || 0);
+  if (mapCount) parts.push(`${unitPieces[factionId].label} ${mapCount}x${unitPieces[factionId].strength}`);
+  Object.entries(specialUnitPieces).forEach(([unitId, unit]) => {
+    if (unit.faction !== factionId) return;
+    const count = Number(space.specialUnits?.[unitId] || 0);
+    if (count) parts.push(`${unit.label} ${count}x${unit.strength}`);
+  });
+  return parts.join(" + ");
+}
+
+function calculatedSupremacy(space) {
+  const scores = Object.fromEntries(factionIds.map(id => [id, factionUnitSv(space, id)]));
+  const max = Math.max(...Object.values(scores));
+  if (max <= 0) return { faction: "", max: 0, tied: false, leaders: [], scores };
+  const leaders = factionIds.filter(id => scores[id] === max);
+  return { faction: leaders.length === 1 ? leaders[0] : "", max, tied: leaders.length > 1, leaders, scores };
+}
+
+function unitSvSummaryHtml(space) {
+  const calc = calculatedSupremacy(space);
+  const scoreText = factionIds.map(id => {
+    const breakdown = unitSvBreakdown(space, id);
+    const detail = breakdown ? ` (${breakdown})` : "";
+    return `${factions[id].short} ${calc.scores[id]}${detail}`;
+  }).join(" | ");
+  let result = "Calculated Supremacy: none";
+  if (calc.faction) result = `Calculated Supremacy: ${factions[calc.faction].short} by unit SV ${calc.max}`;
+  if (calc.tied) result = `Calculated Supremacy: tied at unit SV ${calc.max} (${calc.leaders.map(id => factions[id].short).join(", ")})`;
+  return `<div class="small-note">${esc(result)}. Unit SV: ${esc(scoreText)}.</div>`;
+}
+
+function calculatedSupremacyLabel(space) {
+  const calc = calculatedSupremacy(space);
+  if (calc.faction) return `${factions[calc.faction].short} by SV ${calc.max}`;
+  if (calc.tied) return `Tied at SV ${calc.max}`;
+  return "None by SV";
+}
+
 function spaceValidityHtml(space) {
   const validity = spaceValidity(space);
   if (validity.ok) {
-    return `<div class="small-note">Valid: Influence ${validity.totalInfluence} / Population ${validity.population}; Political Value ${validity.politicalValue}.</div>`;
+    return `<div class="small-note">Valid: Influence ${validity.totalInfluence} / Population ${validity.population}; Political Value ${validity.politicalValue}.</div>${unitSvSummaryHtml(space)}`;
   }
-  return `<div class="warn-box"><strong>Board-state check:</strong> ${esc(spaceLabel(space.id))} ${esc(validity.issues.join(" "))}</div>`;
+  return `<div class="warn-box"><strong>Board-state check:</strong> ${esc(spaceLabel(space.id))} ${esc(validity.issues.join(" "))}</div>${unitSvSummaryHtml(space)}`;
 }
 
 function boardValiditySummaryHtml() {
@@ -3644,8 +3755,18 @@ function spaceInfluenceTokensHtml(space) {
   return tokens || `<span class="empty-token">No influence cubes</span>`;
 }
 
+function spaceHasUnits(space) {
+  return factionIds.some(id => Number(space.units?.[id] || 0) > 0) || Object.keys(specialUnitPieces).some(id => Number(space.specialUnits?.[id] || 0) > 0);
+}
+
 function spaceUnitTokensHtml(space) {
-  const tokens = factionIds.map(id => visualTokenHtml(unitPieces[id].label, space.units[id], `unit ${factions[id].tone}`, unitPieces[id].full)).join("");
+  const specialTokens = Object.entries(specialUnitPieces)
+    .map(([id, unit]) => visualTokenHtml(unit.label, space.specialUnits?.[id], `unit ${factions[unit.faction].tone}`, unit.full))
+    .join("");
+  const tokens = [
+    specialTokens,
+    ...factionIds.map(id => visualTokenHtml(unitPieces[id].label, space.units[id], `unit ${factions[id].tone}`, unitPieces[id].full))
+  ].join("");
   return tokens || `<span class="empty-token">No units</span>`;
 }
 
@@ -3673,6 +3794,7 @@ function mapSpaceVisualHtml(space) {
   const meta = mapSpaces.find(item => item.id === space.id) || { type: "region" };
   const control = controlOptions.find(([id]) => id === space.control)?.[1] || "Uncontrolled";
   const supremacy = space.supremacy ? `${factions[space.supremacy]?.short || space.supremacy} Supremacy` : "No Supremacy";
+  const calculated = `Calc: ${calculatedSupremacyLabel(space)}`;
   const population = Number(space.population || 0) ? `Pop ${space.population}` : "Pop ?";
   const politicalValue = Number(space.politicalValue || 0) ? `PV ${space.politicalValue}` : "PV ?";
   return `<article class="map-space-card control-${esc(space.control)} ${esc(meta.type)}">
@@ -3684,7 +3806,7 @@ function mapSpaceVisualHtml(space) {
       <div class="map-space-name">${esc(spaceLabel(space.id))}</div>
       <div class="map-control-band">
         <strong>${esc(control)}</strong>
-        <span>${esc(supremacy)}</span>
+        <span>${esc(supremacy)} | ${esc(calculated)}</span>
       </div>
       <div class="map-token-section influence-zone">
         <div class="map-token-label">Influence</div>
@@ -3723,7 +3845,11 @@ function pieceLegendHtml() {
     <summary>Piece names used here</summary>
     <div class="walk-block">
       <div class="field-label">Unit buckets</div>
-      <div class="pill-list">${factionIds.map(id => `<span>${esc(unitPieces[id].label)}: ${esc(unitPieces[id].full)}</span>`).join("")}</div>
+      <div class="pill-list">
+        ${Object.values(specialUnitPieces).map(unit => `<span>${esc(unit.label)}: ${esc(unit.full)}</span>`).join("")}
+        ${factionIds.map(id => `<span>${esc(unitPieces[id].label)}: ${esc(unitPieces[id].full)}</span>`).join("")}
+        <span>Coalition FK and Rogue FK can be opposite sides of a physical Freikorps counter; the app tracks the visible/current side.</span>
+      </div>
     </div>
     <div class="walk-block">
       <div class="field-label">Markers</div>
@@ -3741,7 +3867,7 @@ function pieceLegendHtml() {
 function boardSpaceSnapshotHtml(limit = 4) {
   const activeSpaces = Object.values(state.boardState.spaces || {}).filter(space => {
     const influence = factionIds.some(id => Number(space.influence[id]) > 0);
-    const units = factionIds.some(id => Number(space.units[id]) > 0);
+    const units = spaceHasUnits(space);
     const markers = space.markers && Object.values(space.markers).some(value => !!value);
     const guideTokens = Array.isArray(space.guideTokens) && space.guideTokens.length > 0;
     return influence || units || markers || guideTokens || space.control !== "coalition" || space.notes;
@@ -3774,6 +3900,7 @@ function spaceEditorHtml() {
   const space = selectedSpace();
   const spaceId = space.id;
   const control = controlOptions.find(([id]) => id === space.control)?.[1] || "Uncontrolled";
+  const calcSup = calculatedSupremacy(space);
   return `<details class="compact-details map-space-editor" open>
     <summary>Map-space monitor: ${esc(spaceLabel(spaceId))} (${esc(control)})</summary>
     <div class="walk-block">
@@ -3800,6 +3927,7 @@ function spaceEditorHtml() {
             <option value="" ${!space.supremacy ? "selected" : ""}>None</option>
             ${factionOptionsHtml(space.supremacy)}
           </select>
+          ${calcSup.faction ? `<button class="mini-btn" onclick="setSpaceSupremacyToCalculated('${spaceId}')">Use calculated ${esc(factions[calcSup.faction].short)}</button>` : `<div class="small-note">${esc(calculatedSupremacyLabel(space))}</div>`}
         </div>
         <div>
           <div class="context-label">Assassinations</div>
@@ -3821,9 +3949,10 @@ function spaceEditorHtml() {
     <div class="walk-block">
       <div class="field-label">Units</div>
       <div class="space-value-grid">
+        ${Object.entries(specialUnitPieces).map(([id, unit]) => `<label><span>${esc(unit.label)}</span>${numberInputHtml(space.specialUnits?.[id] || 0, `setSpaceSpecialUnit('${spaceId}', '${id}', this.value)`, 0, 99)}</label>`).join("")}
         ${factionIds.map(id => `<label><span>${esc(unitPieces[id].label)}</span>${numberInputHtml(space.units[id], `setSpaceValue('${spaceId}', 'units', '${id}', this.value)`, 0, 99)}</label>`).join("")}
       </div>
-      <div class="small-note">${factionIds.map(id => `${unitPieces[id].label}: ${unitPieces[id].full}`).join(" | ")}</div>
+      <div class="small-note">${[...Object.values(specialUnitPieces), ...factionIds.map(id => unitPieces[id])].map(unit => `${unit.label}: ${unit.full}`).join(" | ")} Coalition FK and Rogue FK may be opposite sides of a physical Freikorps counter, but track the current side/status separately.</div>
     </div>
     <div class="walk-block">
       <div class="field-label">Markers</div>
@@ -5674,7 +5803,9 @@ window.setSpacePopulation = setSpacePopulation;
 window.setSpacePoliticalValue = setSpacePoliticalValue;
 window.setSpaceControl = setSpaceControl;
 window.setSpaceSupremacy = setSpaceSupremacy;
+window.setSpaceSupremacyToCalculated = setSpaceSupremacyToCalculated;
 window.setSpaceValue = setSpaceValue;
+window.setSpaceSpecialUnit = setSpaceSpecialUnit;
 window.setSpaceMarker = setSpaceMarker;
 window.setSpaceNotes = setSpaceNotes;
 window.setSpaceGuideTokens = setSpaceGuideTokens;
