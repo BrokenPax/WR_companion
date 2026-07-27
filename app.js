@@ -1,5 +1,5 @@
 const APP_NAME = "The Weimar Republic Companion";
-const APP_BUILD = "phase-21-guide-token-pass";
+const APP_BUILD = "phase-23-space-values";
 const LOCAL_SAVE_KEY = "wr-companion-state-v6";
 const AUTO_SAVE_DELAY_MS = 350;
 
@@ -232,32 +232,32 @@ const actionChoices = [
 ];
 
 const mapSpaces = [
-  { id: "schleswig_holstein", label: "Schleswig-Holstein", type: "region" },
-  { id: "mecklenburg", label: "Mecklenburg", type: "region" },
-  { id: "pommern", label: "Pommern", type: "region" },
-  { id: "posen_westpreussen", label: "Posen-Westpreussen", type: "region" },
-  { id: "ostpreussen", label: "Ostpreussen", type: "region" },
-  { id: "oldenburg", label: "Oldenburg", type: "region" },
-  { id: "provinz_hannover", label: "Provinz Hannover", type: "region" },
-  { id: "provinz_sachsen", label: "Provinz Sachsen", type: "region" },
-  { id: "brandenburg", label: "Brandenburg", type: "region" },
-  { id: "provinz_westfalen", label: "Provinz Westfalen", type: "region" },
-  { id: "waldeck_lippe", label: "Waldeck and Lippe", type: "region" },
-  { id: "braunschweig_anhalt", label: "Braunschweig and Anhalt", type: "region" },
-  { id: "sachsen", label: "Sachsen", type: "region" },
-  { id: "niederschlesien", label: "Niederschlesien", type: "region" },
-  { id: "oberschlesien", label: "Oberschlesien", type: "region" },
-  { id: "rheinprovinz", label: "Rheinprovinz", type: "region" },
-  { id: "hessenprovinz", label: "Hessenprovinz", type: "region" },
-  { id: "thueringen", label: "Thueringen", type: "region" },
-  { id: "hessen", label: "Hessen", type: "region" },
-  { id: "baden", label: "Baden", type: "region" },
-  { id: "wuerttemberg", label: "Wuerttemberg", type: "region" },
-  { id: "bayern", label: "Bayern", type: "region" },
-  { id: "hamburg", label: "Hamburg", type: "city" },
-  { id: "koeln", label: "Koeln", type: "city" },
-  { id: "muenchen", label: "Muenchen", type: "city" },
-  { id: "berlin", label: "Berlin", type: "city" }
+  { id: "schleswig_holstein", label: "Schleswig-Holstein", type: "region", population: 3, politicalValue: 1 },
+  { id: "mecklenburg", label: "Mecklenburg", type: "region", population: 4, politicalValue: 1 },
+  { id: "pommern", label: "Pommern", type: "region", population: 4, politicalValue: 1 },
+  { id: "posen_westpreussen", label: "Posen-Westpreussen", type: "region", population: 2, politicalValue: 1 },
+  { id: "ostpreussen", label: "Ostpreussen", type: "region", population: 5, politicalValue: 2 },
+  { id: "oldenburg", label: "Oldenburg", type: "region", population: 2, politicalValue: 1 },
+  { id: "provinz_hannover", label: "Provinz Hannover", type: "region", population: 7, politicalValue: 2 },
+  { id: "provinz_sachsen", label: "Provinz Sachsen", type: "region", population: 6, politicalValue: 2 },
+  { id: "brandenburg", label: "Brandenburg", type: "region", population: 6, politicalValue: 2 },
+  { id: "provinz_westfalen", label: "Provinz Westfalen", type: "region", population: 10, politicalValue: 4 },
+  { id: "waldeck_lippe", label: "Waldeck and Lippe", type: "region", population: 2, politicalValue: 1 },
+  { id: "braunschweig_anhalt", label: "Braunschweig and Anhalt", type: "region", population: 3, politicalValue: 1 },
+  { id: "sachsen", label: "Sachsen", type: "region", population: 5, politicalValue: 2 },
+  { id: "niederschlesien", label: "Niederschlesien", type: "region", population: 6, politicalValue: 2 },
+  { id: "oberschlesien", label: "Oberschlesien", type: "region", population: 4, politicalValue: 1 },
+  { id: "rheinprovinz", label: "Rheinprovinz", type: "region", population: 14, politicalValue: 3 },
+  { id: "hessenprovinz", label: "Hessenprovinz", type: "region", population: 5, politicalValue: 2 },
+  { id: "thueringen", label: "Thueringen", type: "region", population: 4, politicalValue: 1 },
+  { id: "hessen", label: "Hessen", type: "region", population: 4, politicalValue: 1 },
+  { id: "baden", label: "Baden", type: "region", population: 6, politicalValue: 2 },
+  { id: "wuerttemberg", label: "Wuerttemberg", type: "region", population: 6, politicalValue: 2 },
+  { id: "bayern", label: "Bayern", type: "region", population: 14, politicalValue: 5 },
+  { id: "hamburg", label: "Hamburg", type: "city", population: 4, politicalValue: 4 },
+  { id: "koeln", label: "Koeln", type: "city", population: 3, politicalValue: 3 },
+  { id: "muenchen", label: "Muenchen", type: "city", population: 4, politicalValue: 4 },
+  { id: "berlin", label: "Berlin", type: "city", population: 6, politicalValue: 6 }
 ];
 
 const electionRegions = mapSpaces.map(space => space.label);
@@ -1317,6 +1317,7 @@ const state = {
   actionPage: "setup",
   actionSubpage: "choice",
   previousActionPage: "turn",
+  mapReturnScreen: "action_resolve",
   sequenceAnswers: {
     actionChoice: "",
     electionPlayed: "",
@@ -1424,10 +1425,16 @@ function normalizeSpaceId(value) {
   return mapSpaces.some(space => space.id === slug) ? slug : spaceAliases[slug] || spaceAliases[spaced] || "berlin";
 }
 
+function mapSpaceMeta(spaceId) {
+  return mapSpaces.find(space => space.id === spaceId) || mapSpaces.find(space => space.id === "berlin");
+}
+
 function blankSpaceState(spaceId) {
+  const meta = mapSpaceMeta(spaceId);
   return {
     id: spaceId,
-    population: 0,
+    population: meta?.population || 0,
+    politicalValue: meta?.politicalValue || 0,
     control: "coalition",
     supremacy: "",
     influence: Object.fromEntries(factionIds.map(id => [id, 0])),
@@ -1456,7 +1463,8 @@ function normalizeSpaceState(spaceId, existing = {}) {
   const guideTokens = Array.isArray(existing.guideTokens) ? existing.guideTokens : [];
   return {
     ...base,
-    population: clampInt(existing.population, 0, 20),
+    population: clampInt(existing.population || base.population, 0, 20),
+    politicalValue: clampInt(existing.politicalValue || base.politicalValue, 0, 20),
     control: controlOptions.some(([id]) => id === existing.control) ? existing.control : base.control,
     supremacy: controlOptions.some(([id]) => id === existing.supremacy) ? existing.supremacy : "",
     influence: Object.fromEntries(factionIds.map(id => [id, clampInt(influence[id], 0, 99)])),
@@ -1571,11 +1579,12 @@ function normalizeState() {
   if (typeof state.selectedActionId !== "string") state.selectedActionId = "";
   if (!state.actionContext || typeof state.actionContext !== "object") state.actionContext = {};
   state.soloSetupComplete = !!state.soloSetupComplete;
-  const knownScreens = ["solo_setup", "scenario_setup", "sequence", "turn_order", "faction_turn", "action_resolve", "board_state", "factions", "rules", "notes", "save_load", "result"];
+  const knownScreens = ["solo_setup", "scenario_setup", "sequence", "turn_order", "faction_turn", "action_resolve", "board_state", "map_space", "factions", "rules", "notes", "save_load", "result"];
   if (!knownScreens.includes(state.screen) || state.screen === "dashboard") {
     state.screen = state.soloSetupComplete ? (state.scenarioId ? "sequence" : "scenario_setup") : "solo_setup";
   }
   if (!knownScreens.includes(state.boardReturnScreen) || state.boardReturnScreen === "board_state") state.boardReturnScreen = "sequence";
+  if (!knownScreens.includes(state.mapReturnScreen) || state.mapReturnScreen === "map_space") state.mapReturnScreen = "action_resolve";
   if (typeof state.boardNotice !== "string") state.boardNotice = "";
   if (!state.boardState || typeof state.boardState !== "object") state.boardState = {};
   const existingBoard = state.boardState;
@@ -1790,11 +1799,25 @@ function takeFactionTurn() {
 
 function editBoardStateFlow() {
   pushHistory();
-  const returnScreens = ["solo_setup", "scenario_setup", "sequence", "faction_turn", "action_resolve"];
+  const returnScreens = ["solo_setup", "scenario_setup", "sequence", "faction_turn", "action_resolve", "map_space"];
   state.boardReturnScreen = returnScreens.includes(state.screen) ? state.screen : "sequence";
   state.previousActionPage = state.actionPage || "turn";
   state.actionPage = "board";
   state.screen = "board_state";
+  render();
+}
+
+function openSpaceMapView(spaceId = state.boardState.selectedSpace, remember = true) {
+  if (remember && state.screen !== "map_space") pushHistory();
+  state.mapReturnScreen = state.screen === "map_space" ? state.mapReturnScreen : state.screen;
+  state.boardState.selectedSpace = normalizeSpaceId(spaceId);
+  state.screen = "map_space";
+  render();
+}
+
+function closeSpaceMapView() {
+  const returnScreen = state.mapReturnScreen || state.boardReturnScreen || "action_resolve";
+  state.screen = returnScreen === "map_space" ? "action_resolve" : returnScreen;
   render();
 }
 
@@ -2197,6 +2220,10 @@ function applyBoardEffect() {
   state.effectHistory = state.effectHistory.slice(0, 100);
   state.boardNotice = summary ? `Applied to board state: ${summary}` : "Applied to board state.";
   delete state.effectDrafts[context.key];
+  if (["influence", "unit", "control", "marker", "note"].includes(draft.mode)) {
+    state.mapReturnScreen = state.screen;
+    state.screen = "map_space";
+  }
   render();
 }
 
@@ -2209,6 +2236,13 @@ function setSpacePopulation(spaceId, value) {
   const space = state.boardState.spaces[normalizeSpaceId(spaceId)];
   if (!space) return;
   space.population = clampInt(value, 0, 20);
+  render();
+}
+
+function setSpacePoliticalValue(spaceId, value) {
+  const space = state.boardState.spaces[normalizeSpaceId(spaceId)];
+  if (!space) return;
+  space.politicalValue = clampInt(value, 0, 20);
   render();
 }
 
@@ -3357,9 +3391,10 @@ function effectLegalityHintHtml(draft) {
   const nextFaction = applyNumberOperation(current, draft.operation, draft.amount);
   const currentTotal = factionIds.reduce((sum, id) => sum + Number(space.influence[id] || 0), 0);
   const projectedTotal = currentTotal - current + nextFaction;
-  if (!space.population) return `<div class="small-note">Population is blank for ${esc(spaceLabel(space.id))}; set it in Board State to let the app flag Influence over-cap.</div>`;
+  const pvText = Number(space.politicalValue || 0) ? ` Political Value ${space.politicalValue}.` : " Political Value is blank.";
+  if (!space.population) return `<div class="small-note">Population is blank for ${esc(spaceLabel(space.id))}; set it in Board State to let the app flag Influence over-cap.${pvText}</div>`;
   if (projectedTotal > space.population) return `<div class="warn-box"><strong>Check legality:</strong> projected Influence ${projectedTotal} exceeds Population ${space.population} in ${esc(spaceLabel(space.id))}.</div>`;
-  return `<div class="small-note">Projected Influence ${projectedTotal} / Population ${space.population} in ${esc(spaceLabel(space.id))}.</div>`;
+  return `<div class="small-note">Projected Influence ${projectedTotal} / Population ${space.population} in ${esc(spaceLabel(space.id))}.${pvText}</div>`;
 }
 
 function choiceLogHtml(limit = 6) {
@@ -3548,6 +3583,134 @@ function markerSummaryHtml(space) {
   return markers.length ? markers.map(item => `<span>${esc(item)}</span>`).join("") : `<span>Clear</span>`;
 }
 
+function spaceInfluenceTotal(space) {
+  return factionIds.reduce((sum, id) => sum + Number(space.influence?.[id] || 0), 0);
+}
+
+function spaceValidity(space) {
+  const totalInfluence = spaceInfluenceTotal(space);
+  const population = Number(space.population || 0);
+  const politicalValue = Number(space.politicalValue || 0);
+  const issues = [];
+  if (!population) issues.push("Missing Population Number.");
+  if (!politicalValue) issues.push("Missing Political Value.");
+  if (population && totalInfluence > population) issues.push(`Influence ${totalInfluence} exceeds Population ${population}.`);
+  return { ok: issues.length === 0, issues, totalInfluence, population, politicalValue };
+}
+
+function spaceValidityHtml(space) {
+  const validity = spaceValidity(space);
+  if (validity.ok) {
+    return `<div class="small-note">Valid: Influence ${validity.totalInfluence} / Population ${validity.population}; Political Value ${validity.politicalValue}.</div>`;
+  }
+  return `<div class="warn-box"><strong>Board-state check:</strong> ${esc(spaceLabel(space.id))} ${esc(validity.issues.join(" "))}</div>`;
+}
+
+function boardValiditySummaryHtml() {
+  const spaces = Object.values(state.boardState.spaces || {});
+  const invalid = spaces.filter(space => !spaceValidity(space).ok);
+  if (!invalid.length) {
+    return `<div class="toast-note">Board-state values valid: every map space has Population, Political Value, and Influence within Population.</div>`;
+  }
+  return `<div class="warn-box">
+    <strong>Board-state checks need attention:</strong>
+    ${listHtml(invalid.slice(0, 8).map(space => `${spaceLabel(space.id)}: ${spaceValidity(space).issues.join(" ")}`))}
+    ${invalid.length > 8 ? `<div class="small-note">${invalid.length - 8} more spaces need review.</div>` : ""}
+  </div>`;
+}
+
+function visualTokenHtml(label, count, klass, title = "") {
+  const parsed = clampInt(count, 0, 99);
+  if (!parsed) return "";
+  return `<span class="visual-token ${klass}" title="${esc(title || label)}">
+    <b>${esc(label)}</b>
+    ${parsed > 1 ? `<small>x${parsed}</small>` : ""}
+  </span>`;
+}
+
+function booleanMarkerTokenHtml(active, label, klass) {
+  return active ? `<span class="visual-marker ${klass}">${esc(label)}</span>` : "";
+}
+
+function spaceInfluenceTokensHtml(space) {
+  const tokens = factionIds.map(id => visualTokenHtml(factions[id].short[0], space.influence[id], `cube ${factions[id].tone}`, `${factions[id].short} Influence`)).join("");
+  return tokens || `<span class="empty-token">No influence cubes</span>`;
+}
+
+function spaceUnitTokensHtml(space) {
+  const tokens = factionIds.map(id => visualTokenHtml(factions[id].short[0] + "U", space.units[id], `unit ${factions[id].tone}`, `${factions[id].short} units`)).join("");
+  return tokens || `<span class="empty-token">No units</span>`;
+}
+
+function spaceMarkerTokensHtml(space) {
+  const markers = [
+    booleanMarkerTokenHtml(space.markers.strike, "Strike", "strike"),
+    booleanMarkerTokenHtml(space.markers.uprising, "Uprising", "uprising"),
+    booleanMarkerTokenHtml(space.markers.reform, "Reform", "reform"),
+    visualTokenHtml("KPD Cadre", space.markers.kpdCadre, "cadre kpd", "KPD Cadres"),
+    visualTokenHtml("NSDAP Cadre", space.markers.nsdapCadre, "cadre nsdap", "NSDAP Cadres"),
+    visualTokenHtml("Clique", space.markers.conservativeClique, "cadre radcon", "Conservative Cliques"),
+    booleanMarkerTokenHtml(space.markers.yellowLeverage, "Yellow Leverage", "yellow-leverage"),
+    booleanMarkerTokenHtml(space.markers.blackLeverage, "Black Leverage", "black-leverage"),
+    space.markers.assassinations ? `<span class="visual-marker assassinations">${space.markers.assassinations === "brown_black" ? "Brown/black" : "Yellow/red"} Assassinations</span>` : ""
+  ].join("");
+  return markers || `<span class="empty-token">No markers</span>`;
+}
+
+function spaceGuideTokensHtml(space) {
+  const tokens = (space.guideTokens || []).map(token => `<span>${esc(token)}</span>`).join("");
+  return tokens ? `<div class="map-guide-row">${tokens}</div>` : "";
+}
+
+function mapSpaceVisualHtml(space) {
+  const meta = mapSpaces.find(item => item.id === space.id) || { type: "region" };
+  const control = controlOptions.find(([id]) => id === space.control)?.[1] || "Uncontrolled";
+  const supremacy = space.supremacy ? `${factions[space.supremacy]?.short || space.supremacy} Supremacy` : "No Supremacy";
+  const population = Number(space.population || 0) ? `Pop ${space.population}` : "Pop ?";
+  const politicalValue = Number(space.politicalValue || 0) ? `PV ${space.politicalValue}` : "PV ?";
+  return `<article class="map-space-card control-${esc(space.control)} ${esc(meta.type)}">
+    <div class="map-space-board">
+      <div class="map-space-topline">
+        <span>${esc(meta.type)}</span>
+        <span>${esc(population)} | ${esc(politicalValue)}</span>
+      </div>
+      <div class="map-space-name">${esc(spaceLabel(space.id))}</div>
+      <div class="map-control-band">
+        <strong>${esc(control)}</strong>
+        <span>${esc(supremacy)}</span>
+      </div>
+      <div class="map-token-section influence-zone">
+        <div class="map-token-label">Influence</div>
+        <div class="map-token-tray">${spaceInfluenceTokensHtml(space)}</div>
+      </div>
+      <div class="map-token-section unit-zone">
+        <div class="map-token-label">Units</div>
+        <div class="map-token-tray">${spaceUnitTokensHtml(space)}</div>
+      </div>
+      <div class="map-token-section marker-zone">
+        <div class="map-token-label">Markers</div>
+        <div class="map-token-tray">${spaceMarkerTokensHtml(space)}</div>
+      </div>
+    </div>
+    ${spaceValidityHtml(space)}
+    ${spaceGuideTokensHtml(space)}
+    ${space.notes ? `<div class="map-space-note">${esc(space.notes)}</div>` : ""}
+  </article>`;
+}
+
+function mapSpacePickerHtml(spaceId) {
+  return `<div class="choice-grid">
+    <div>
+      <div class="context-label">Inspect another space</div>
+      <select class="select-input" onchange="openSpaceMapView(this.value, false)">${spaceOptionsHtml(spaceId)}</select>
+    </div>
+    <div>
+      <div class="context-label">Quick edit</div>
+      ${btn("Open full board editor", "editBoardStateFlow()")}
+    </div>
+  </div>`;
+}
+
 function boardSpaceSnapshotHtml(limit = 4) {
   const activeSpaces = Object.values(state.boardState.spaces || {}).filter(space => {
     const influence = factionIds.some(id => Number(space.influence[id]) > 0);
@@ -3558,10 +3721,10 @@ function boardSpaceSnapshotHtml(limit = 4) {
   });
   if (!activeSpaces.length) return `<div class="small-note">No space-level changes entered yet. Use Board State or Apply board effect to fill the monitor as play unfolds.</div>`;
   return `<div class="space-snapshot">
-    ${activeSpaces.slice(0, limit).map(space => `<article class="space-row">
+    ${activeSpaces.slice(0, limit).map(space => `<article class="space-row" onclick="openSpaceMapView('${esc(space.id)}')">
       <div>
         <strong>${esc(spaceLabel(space.id))}</strong>
-        <span>${esc(controlOptions.find(([id]) => id === space.control)?.[1] || "Uncontrolled")}</span>
+        <span>${esc(controlOptions.find(([id]) => id === space.control)?.[1] || "Uncontrolled")} | Pop ${esc(space.population || "?")} | PV ${esc(space.politicalValue || "?")}</span>
       </div>
       <div class="pill-list">${factionIds.filter(id => Number(space.influence[id]) > 0).map(id => `<span>${esc(factions[id].short)} ${space.influence[id]}</span>`).join("") || "<span>No influence</span>"}</div>
       <div class="pill-list">${markerSummaryHtml(space)}</div>
@@ -3597,6 +3760,10 @@ function spaceEditorHtml() {
           ${numberInputHtml(space.population, `setSpacePopulation('${spaceId}', this.value)`, 0, 20)}
         </div>
         <div>
+          <div class="context-label">Political Value</div>
+          ${numberInputHtml(space.politicalValue, `setSpacePoliticalValue('${spaceId}', this.value)`, 0, 20)}
+        </div>
+        <div>
           <div class="context-label">Parliamentary Control</div>
           <select class="select-input" onchange="setSpaceControl('${spaceId}', this.value)">${selectOptionsHtml(controlOptions, space.control)}</select>
         </div>
@@ -3616,6 +3783,7 @@ function spaceEditorHtml() {
           </select>
         </div>
       </div>
+      ${spaceValidityHtml(space)}
     </div>
     <div class="walk-block">
       <div class="field-label">Influence</div>
@@ -3796,6 +3964,7 @@ function boardStateCompactHtml() {
       </div>
     </div>
     ${boardStateControlsHtml()}
+    ${boardValiditySummaryHtml()}
     <div class="small-note">Current: Progress ${board.progress}, Reaction ${board.reaction}, Economy ${esc(economyLabel(board.economy))}, Unity ${esc(board.unity)}, U.S. Deals ${board.usDeals}, U.S.S.R. Deals ${board.ussrDeals}, General Strike ${board.generalStrikeActive ? "active" : "not active"}.</div>
     <div class="sequence-actions">
       ${btn("Save board state", "saveBoardStatePage()", "primary")}
@@ -4224,6 +4393,33 @@ function renderBoardState(app) {
     <section class="panel flow-panel">
       ${orientationStripHtml()}
       ${boardStateCompactHtml()}
+    </section>
+    ${flowStickyHtml("board")}
+  `;
+}
+
+function renderMapSpace(app) {
+  const space = selectedSpace();
+  const notice = state.boardNotice ? `<div class="toast-note">${esc(state.boardNotice)}</div>` : "";
+  app.innerHTML = `
+    <section class="panel flow-panel">
+      ${orientationStripHtml()}
+      <div class="runner-page">
+        <div class="section-head">
+          <div>
+            <div class="kicker">Map Space</div>
+            <h2>${esc(spaceLabel(space.id))}</h2>
+            <p class="muted">Current remembered pieces and markers after the latest board-state update.</p>
+          </div>
+          ${badge("Visual check", "good")}
+        </div>
+        ${notice}
+        ${mapSpaceVisualHtml(space)}
+        ${mapSpacePickerHtml(space.id)}
+        <div class="sequence-actions">
+          ${btn("Continue", "closeSpaceMapView()", "primary")}
+        </div>
+      </div>
     </section>
     ${flowStickyHtml("board")}
   `;
@@ -5375,6 +5571,11 @@ function render() {
     scheduleAutoSave();
     return;
   }
+  if (state.screen === "map_space") {
+    renderMapSpace(app);
+    scheduleAutoSave();
+    return;
+  }
   if (state.screen === "factions") {
     renderFactions(app);
     scheduleAutoSave();
@@ -5424,6 +5625,8 @@ window.continueToScenarioSetup = continueToScenarioSetup;
 window.continueFromScenarioSetup = continueFromScenarioSetup;
 window.takeFactionTurn = takeFactionTurn;
 window.editBoardStateFlow = editBoardStateFlow;
+window.openSpaceMapView = openSpaceMapView;
+window.closeSpaceMapView = closeSpaceMapView;
 window.editTurnOrderFlow = editTurnOrderFlow;
 window.saveTurnOrderFlow = saveTurnOrderFlow;
 window.chooseTurnOption = chooseTurnOption;
@@ -5445,6 +5648,7 @@ window.updateEffectDraft = updateEffectDraft;
 window.applyBoardEffect = applyBoardEffect;
 window.setSelectedSpace = setSelectedSpace;
 window.setSpacePopulation = setSpacePopulation;
+window.setSpacePoliticalValue = setSpacePoliticalValue;
 window.setSpaceControl = setSpaceControl;
 window.setSpaceSupremacy = setSpaceSupremacy;
 window.setSpaceValue = setSpaceValue;

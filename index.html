@@ -191,9 +191,46 @@ textarea{width:100%;min-height:150px;border:1px solid var(--line);border-radius:
 .mode-tabs{grid-template-columns:repeat(6,minmax(0,1fr));margin:10px 0}
 .number-input{width:100%;margin-bottom:0}
 .space-snapshot{display:grid;gap:8px;margin-top:10px}
-.space-row{display:grid;gap:7px;border:1px solid var(--line);border-radius:8px;background:#fffaf0;padding:10px}
+.space-row{display:grid;gap:7px;border:1px solid var(--line);border-radius:8px;background:#fffaf0;padding:10px;cursor:pointer}
 .space-row>div:first-child{display:flex;justify-content:space-between;gap:8px;color:var(--ink)}
 .space-row>div:first-child span{color:var(--muted);font-size:12px;font-weight:850}
+.map-space-card{display:grid;gap:10px;border:1px solid var(--line);border-radius:8px;background:#fffaf0;padding:10px}
+.map-space-board{position:relative;display:grid;gap:10px;min-height:420px;border:2px solid #b8a98f;border-radius:8px;background:linear-gradient(135deg,#f8ecd2 0%,#fffaf0 48%,#eadfc9 100%);padding:14px;overflow:hidden}
+.map-space-board:before{content:"";position:absolute;inset:12px;border:1px dashed rgba(87,74,54,.25);border-radius:54% 46% 49% 51%;pointer-events:none}
+.map-space-card.city .map-space-board:before{border-radius:999px}
+.map-space-topline{position:relative;display:flex;justify-content:space-between;gap:8px;color:#6f604a;font-size:11px;font-weight:950;text-transform:uppercase}
+.map-space-name{position:relative;align-self:start;text-align:center;font-size:27px;line-height:1.05;font-weight:950;color:#1f2937;text-transform:uppercase}
+.map-control-band{position:relative;display:flex;align-items:center;justify-content:space-between;gap:8px;border:1px solid rgba(31,41,55,.18);border-radius:8px;background:rgba(255,253,248,.82);padding:8px 10px}
+.map-control-band strong{font-size:14px}
+.map-control-band span{color:var(--muted);font-size:12px;font-weight:850}
+.map-token-section{position:relative;border:1px solid rgba(31,41,55,.14);border-radius:8px;background:rgba(255,253,248,.86);padding:9px}
+.map-token-label{font-size:11px;font-weight:950;text-transform:uppercase;color:#6f604a;margin-bottom:7px}
+.map-token-tray{display:flex;flex-wrap:wrap;align-items:center;gap:8px;min-height:46px}
+.visual-token{display:inline-flex;align-items:center;justify-content:center;gap:4px;min-width:42px;min-height:42px;border:2px solid rgba(0,0,0,.16);box-shadow:0 2px 0 rgba(0,0,0,.12);font-size:12px;font-weight:950;line-height:1;color:white}
+.visual-token b{font-weight:950}
+.visual-token small{font-size:10px;font-weight:950}
+.visual-token.cube{border-radius:6px}
+.visual-token.unit{border-radius:999px}
+.visual-token.cadre{min-width:72px;border-radius:8px;transform:skew(-7deg)}
+.visual-token.coalition{background:#d8a540;color:#2b2108}
+.visual-token.kpd{background:#b32626}
+.visual-token.nsdap{background:#7b5438}
+.visual-token.radcon{background:#222}
+.visual-marker{display:inline-flex;align-items:center;min-height:34px;border:1px solid rgba(31,41,55,.18);border-radius:8px;background:white;padding:7px 9px;font-size:12px;font-weight:900;line-height:1.1}
+.visual-marker.strike,.visual-marker.uprising{background:#f5c7c7;color:#7f1d1d}
+.visual-marker.reform{background:#dceee7;color:#1f584b}
+.visual-marker.yellow-leverage{background:#f7e7ad;color:#5f4200}
+.visual-marker.black-leverage{background:#d9d9d9;color:#111827}
+.visual-marker.assassinations{background:#fff4f4;color:#7f1d1d}
+.empty-token{color:var(--muted);font-size:13px;font-weight:850}
+.map-guide-row{display:flex;flex-wrap:wrap;gap:8px}
+.map-guide-row span{border:1px solid var(--line);border-radius:999px;background:white;padding:7px 10px;color:var(--muted);font-size:12px;font-weight:850}
+.map-space-note{border:1px solid #e8c771;border-radius:8px;background:#fff8e8;padding:10px;color:#5f4200;font-size:13px;line-height:1.35}
+.control-coalition .map-control-band{border-left:5px solid var(--gold)}
+.control-kpd .map-control-band{border-left:5px solid #b32626}
+.control-nsdap .map-control-band{border-left:5px solid #7b5438}
+.control-radical_conservatives .map-control-band{border-left:5px solid #222}
+.control-uncontrolled .map-control-band{border-left:5px solid #8b7d67}
 .map-space-editor{margin-top:14px}
 .space-value-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
 .space-value-grid label{display:grid;gap:5px;font-size:12px;font-weight:850;color:var(--muted)}
@@ -282,6 +319,10 @@ textarea{width:100%;min-height:150px;border:1px solid var(--line);border-radius:
   .turn-rail{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
   .turn-rail-item{padding:7px}
   .turn-rail-item .turn-order-label{width:24px;height:24px;font-size:12px}
+  .map-space-board{min-height:360px;padding:12px}
+  .map-space-name{font-size:23px}
+  .visual-token{min-width:38px;min-height:38px}
+  .visual-token.cadre{min-width:68px}
   .turn-aid-details{margin-top:10px}
   .timeline{grid-template-columns:repeat(3,minmax(0,1fr))}
   .section-head{display:block}
@@ -299,6 +340,6 @@ textarea{width:100%;min-height:150px;border:1px solid var(--line);border-radius:
   </div></div>
   <main class="wrap" id="app"></main>
 </div>
-<script src="app.js?v=phase-21-guide-token-pass"></script>
+<script src="app.js?v=phase-23-space-values"></script>
 </body>
 </html>
