@@ -1,5 +1,5 @@
 const APP_NAME = "The Weimar Republic Companion";
-const APP_BUILD = "phase-19-board-order-spaces";
+const APP_BUILD = "phase-21-guide-token-pass";
 const LOCAL_SAVE_KEY = "wr-companion-state-v6";
 const AUTO_SAVE_DELAY_MS = 350;
 
@@ -283,6 +283,136 @@ const spaceAliases = {
 };
 
 const controlOptions = [["uncontrolled", "Uncontrolled"], ...factionIds.map(id => [id, factions[id].short])];
+
+function guideSpace({ c = 0, k = 0, n = 0, r = 0, cu = 0, ku = 0, nu = 0, ru = 0, kc = 0, nc = 0, cc = 0, sup = "", strike = false, uprising = false, yl = false, bl = false, assassinations = "", tokens = [], notes = "" } = {}) {
+  return {
+    supremacy: sup,
+    influence: { coalition: c, kpd: k, nsdap: n, radical_conservatives: r },
+    units: { coalition: cu, kpd: ku, nsdap: nu, radical_conservatives: ru },
+    guideTokens: tokens,
+    markers: {
+      strike,
+      uprising,
+      kpdCadre: kc,
+      nsdapCadre: nc,
+      conservativeClique: cc,
+      yellowLeverage: yl,
+      blackLeverage: bl,
+      assassinations
+    },
+    notes
+  };
+}
+
+const guideCommonCrisisNorth = {
+  schleswig_holstein: guideSpace({ c: 1 }),
+  mecklenburg: guideSpace({ c: 1 }),
+  pommern: guideSpace({ c: 1, r: 1 }),
+  posen_westpreussen: guideSpace({ r: 1 }),
+  ostpreussen: guideSpace({ c: 1, r: 1 }),
+  oldenburg: guideSpace({ c: 1 }),
+  provinz_hannover: guideSpace({ c: 2 }),
+  provinz_sachsen: guideSpace({ c: 2 }),
+  brandenburg: guideSpace({ c: 1, r: 1 }),
+  waldeck_lippe: guideSpace({ c: 1 }),
+  braunschweig_anhalt: guideSpace({ c: 1, k: 1 }),
+  niederschlesien: guideSpace({ c: 1, r: 1 }),
+  oberschlesien: guideSpace({ c: 1, r: 1 }),
+  hessenprovinz: guideSpace({ c: 2 }),
+  thueringen: guideSpace({ c: 1, k: 1 }),
+  hessen: guideSpace({ c: 1 }),
+  baden: guideSpace({ c: 2, r: 1 }),
+  wuerttemberg: guideSpace({ c: 1, r: 1 }),
+  hamburg: guideSpace({ c: 1 }),
+  koeln: guideSpace({ c: 1, cu: 1, sup: "coalition", tokens: ["Coalition unit strength 2"] }),
+  muenchen: guideSpace({ c: 1, k: 1, n: 1, r: 1, cu: 1, sup: "coalition", tokens: ["Coalition unit strength 2"] })
+};
+
+const scenarioSpaceSetups = {
+  tutorial_1921: {
+    ...guideCommonCrisisNorth,
+    provinz_westfalen: guideSpace({ c: 4, k: 3 }),
+    sachsen: guideSpace({ k: 2, ku: 1, sup: "kpd", strike: true, tokens: ["KPD unit strength 1"] }),
+    rheinprovinz: guideSpace({ c: 5, k: 4 }),
+    bayern: guideSpace({ c: 2, k: 3, n: 1, r: 5, ru: 1, nc: 1, sup: "coalition", bl: true, tokens: ["Black Leverage x2", "RC unit block"], notes: "Graphic Guide A shows two black Leverage markers." }),
+    muenchen: guideSpace({ c: 1, k: 1, n: 1, r: 1, cu: 1, nc: 1, sup: "coalition", tokens: ["Coalition unit strength 2", "KPD unit strength 2", "NSDAP unit strength 1"] }),
+    berlin: guideSpace({ c: 2, k: 2, r: 2, cu: 2, ku: 2, kc: 1, sup: "coalition", tokens: ["Coalition unit strength 2 x2", "KPD unit strength 1 x2", "RC unit strength 2 x2"] })
+  },
+  revolution_1919: {
+    ...guideCommonCrisisNorth,
+    provinz_westfalen: guideSpace({ c: 4, k: 2 }),
+    sachsen: guideSpace({ k: 1 }),
+    rheinprovinz: guideSpace({ c: 5, k: 3 }),
+    bayern: guideSpace({ c: 4, k: 2, r: 3, ru: 1 }),
+    muenchen: guideSpace({ c: 1, k: 1, n: 1, r: 1, cu: 1, sup: "coalition", tokens: ["Coalition unit strength 2"] }),
+    berlin: guideSpace({ c: 2, k: 2, r: 1, cu: 2, ku: 1, sup: "coalition", tokens: ["Coalition unit strength 2 x2", "KPD unit strength 1", "RC unit strength 2"] })
+  },
+  new_hope_1924: {
+    schleswig_holstein: guideSpace({ c: 1, r: 1 }),
+    mecklenburg: guideSpace({ c: 1 }),
+    pommern: guideSpace({ r: 1 }),
+    posen_westpreussen: guideSpace({ r: 1 }),
+    ostpreussen: guideSpace({ r: 2, ru: 1, tokens: ["RC unit block"] }),
+    oldenburg: guideSpace({ c: 1 }),
+    provinz_hannover: guideSpace({ c: 2 }),
+    provinz_sachsen: guideSpace({ c: 2 }),
+    brandenburg: guideSpace({ c: 2, r: 2 }),
+    provinz_westfalen: guideSpace({ c: 3, k: 1 }),
+    waldeck_lippe: guideSpace({ c: 1 }),
+    braunschweig_anhalt: guideSpace({ c: 1 }),
+    sachsen: guideSpace({ c: 1, k: 1 }),
+    niederschlesien: guideSpace({ c: 2, r: 1 }),
+    oberschlesien: guideSpace({ c: 2, r: 1 }),
+    rheinprovinz: guideSpace({ c: 4, k: 3 }),
+    hessenprovinz: guideSpace({ c: 2 }),
+    thueringen: guideSpace({ c: 1, k: 1 }),
+    hessen: guideSpace({ c: 1 }),
+    baden: guideSpace({ c: 2, r: 1 }),
+    wuerttemberg: guideSpace({ c: 2, r: 1 }),
+    bayern: guideSpace({ c: 4, k: 2, n: 1, r: 2, ru: 1, bl: true, tokens: ["RC unit block"] }),
+    hamburg: guideSpace({ c: 1 }),
+    koeln: guideSpace({ c: 1 }),
+    muenchen: guideSpace({ c: 1, n: 1, r: 1, nc: 1, sup: "nsdap", tokens: ["Coalition unit strength 1"] }),
+    berlin: guideSpace({ c: 3, k: 2, r: 1, cu: 1, ku: 1, kc: 1, sup: "coalition", tokens: ["Coalition unit strength 3", "KPD unit strength 1", "RC unit strength 2"] })
+  },
+  black_sun_1928: {
+    schleswig_holstein: guideSpace({ c: 1 }),
+    mecklenburg: guideSpace({ c: 1 }),
+    pommern: guideSpace({ c: 1, r: 1 }),
+    posen_westpreussen: guideSpace({ c: 1, r: 1 }),
+    ostpreussen: guideSpace({ r: 2, ru: 1, sup: "radical_conservatives", bl: true, tokens: ["RC unit strength 2", "RC unit block"], notes: "Graphic Guide D also shows a strength-2 token." }),
+    oldenburg: guideSpace({ c: 1 }),
+    provinz_hannover: guideSpace({ c: 2 }),
+    provinz_sachsen: guideSpace({ c: 2 }),
+    brandenburg: guideSpace({ c: 2, n: 1, r: 1 }),
+    provinz_westfalen: guideSpace({ c: 3, k: 2 }),
+    waldeck_lippe: guideSpace({ c: 1 }),
+    braunschweig_anhalt: guideSpace({ c: 1 }),
+    sachsen: guideSpace({ c: 1, k: 2 }),
+    niederschlesien: guideSpace({ c: 1, n: 1, r: 1 }),
+    oberschlesien: guideSpace({ c: 1, r: 1 }),
+    rheinprovinz: guideSpace({ c: 4, k: 3 }),
+    hessenprovinz: guideSpace({ c: 2 }),
+    thueringen: guideSpace({ c: 1, k: 1 }),
+    hessen: guideSpace({ c: 1 }),
+    baden: guideSpace({ c: 2, r: 2 }),
+    wuerttemberg: guideSpace({ c: 2, r: 2 }),
+    bayern: guideSpace({ c: 4, k: 1, n: 2, r: 4, cu: 1, ru: 1, sup: "radical_conservatives", bl: true, tokens: ["KPD unit strength 2", "Coalition unit strength 1", "RC unit block"] }),
+    hamburg: guideSpace({ c: 1, ku: 1, sup: "kpd", tokens: ["KPD unit strength 1"] }),
+    koeln: guideSpace({ c: 1, k: 1, ku: 2, kc: 1, sup: "kpd", tokens: ["KPD unit strength 1 x2"] }),
+    muenchen: guideSpace({ c: 2, n: 1, r: 1, cu: 1, nc: 1, sup: "coalition", tokens: ["Coalition unit strength 1", "Coalition unit strength 3", "NSDAP unit strength 1"] }),
+    berlin: guideSpace({ c: 3, k: 1, n: 1, r: 1, cu: 1, ku: 1, yl: true, sup: "coalition", tokens: ["Coalition unit strength 1", "Coalition unit strength 3", "KPD unit strength 1", "RC unit strength 2"] })
+  },
+  fate_1919: {
+    ...guideCommonCrisisNorth,
+    provinz_westfalen: guideSpace({ c: 4, k: 2 }),
+    sachsen: guideSpace({ k: 1 }),
+    rheinprovinz: guideSpace({ c: 5, k: 3 }),
+    bayern: guideSpace({ c: 4, k: 2, r: 3, ru: 1 }),
+    muenchen: guideSpace({ c: 1, k: 1, n: 1, r: 1, cu: 1, sup: "coalition", tokens: ["Coalition unit strength 2"] }),
+    berlin: guideSpace({ c: 2, k: 2, r: 1, cu: 2, ku: 1, sup: "coalition", tokens: ["Coalition unit strength 2 x2", "KPD unit strength 1", "RC unit strength 2"] })
+  }
+};
 
 const effectModes = [
   ["influence", "Influence"],
@@ -1299,8 +1429,10 @@ function blankSpaceState(spaceId) {
     id: spaceId,
     population: 0,
     control: "coalition",
+    supremacy: "",
     influence: Object.fromEntries(factionIds.map(id => [id, 0])),
     units: Object.fromEntries(factionIds.map(id => [id, 0])),
+    guideTokens: [],
     markers: {
       strike: false,
       uprising: false,
@@ -1321,12 +1453,15 @@ function normalizeSpaceState(spaceId, existing = {}) {
   const influence = existing.influence && typeof existing.influence === "object" ? existing.influence : {};
   const units = existing.units && typeof existing.units === "object" ? existing.units : {};
   const markers = existing.markers && typeof existing.markers === "object" ? existing.markers : {};
+  const guideTokens = Array.isArray(existing.guideTokens) ? existing.guideTokens : [];
   return {
     ...base,
     population: clampInt(existing.population, 0, 20),
     control: controlOptions.some(([id]) => id === existing.control) ? existing.control : base.control,
+    supremacy: controlOptions.some(([id]) => id === existing.supremacy) ? existing.supremacy : "",
     influence: Object.fromEntries(factionIds.map(id => [id, clampInt(influence[id], 0, 99)])),
     units: Object.fromEntries(factionIds.map(id => [id, clampInt(units[id], 0, 99)])),
+    guideTokens: guideTokens.map(token => String(token || "").trim()).filter(Boolean).slice(0, 24),
     markers: {
       strike: !!markers.strike,
       uprising: !!markers.uprising,
@@ -1344,6 +1479,19 @@ function normalizeSpaceState(spaceId, existing = {}) {
 
 function defaultSpacesForScenario(scenarioId = "") {
   const spaces = Object.fromEntries(mapSpaces.map(space => [space.id, blankSpaceState(space.id)]));
+  const setup = scenarioSpaceSetups[scenarioId] || {};
+  for (const [spaceId, seed] of Object.entries(setup)) {
+    if (!spaces[spaceId]) continue;
+    spaces[spaceId] = normalizeSpaceState(spaceId, {
+      ...spaces[spaceId],
+      ...seed,
+      influence: { ...spaces[spaceId].influence, ...(seed.influence || {}) },
+      units: { ...spaces[spaceId].units, ...(seed.units || {}) },
+      guideTokens: [...(spaces[spaceId].guideTokens || []), ...(seed.guideTokens || [])],
+      markers: { ...spaces[spaceId].markers, ...(seed.markers || {}) },
+      notes: [spaces[spaceId].notes, seed.notes].filter(Boolean).join(" | ")
+    });
+  }
   if (scenarioId === "black_sun_1928") spaces.koeln.control = "uncontrolled";
   return spaces;
 }
@@ -2071,6 +2219,13 @@ function setSpaceControl(spaceId, control) {
   render();
 }
 
+function setSpaceSupremacy(spaceId, factionId) {
+  const space = state.boardState.spaces[normalizeSpaceId(spaceId)];
+  if (!space) return;
+  space.supremacy = factions[factionId] ? factionId : "";
+  render();
+}
+
 function setSpaceValue(spaceId, group, factionId, value) {
   const space = state.boardState.spaces[normalizeSpaceId(spaceId)];
   if (!space || !["influence", "units"].includes(group) || !factions[factionId]) return;
@@ -2096,6 +2251,18 @@ function setSpaceNotes(spaceId, value) {
   if (!space) return;
   space.notes = value;
   scheduleAutoSave();
+}
+
+function setSpaceGuideTokens(spaceId, value) {
+  const space = state.boardState.spaces[normalizeSpaceId(spaceId)];
+  if (!space) return;
+  space.guideTokens = String(value || "")
+    .split(/[,|]/)
+    .map(token => token.trim())
+    .filter(Boolean)
+    .slice(0, 24);
+  scheduleAutoSave();
+  render();
 }
 
 function scenarioSetupText(scenario) {
@@ -3367,6 +3534,7 @@ function actionContextControlsHtml() {
 
 function markerSummaryHtml(space) {
   const markers = [];
+  if (space.supremacy) markers.push(`${factions[space.supremacy]?.short || space.supremacy} Supremacy`);
   if (space.markers.strike) markers.push("Strike");
   if (space.markers.uprising) markers.push("Uprising");
   if (space.markers.reform) markers.push("Reform");
@@ -3376,6 +3544,7 @@ function markerSummaryHtml(space) {
   if (space.markers.yellowLeverage) markers.push("Yellow Leverage");
   if (space.markers.blackLeverage) markers.push("Black Leverage");
   if (space.markers.assassinations) markers.push(space.markers.assassinations === "brown_black" ? "Brown/black Assassinations" : "Yellow/red Assassinations");
+  for (const token of space.guideTokens || []) markers.push(token);
   return markers.length ? markers.map(item => `<span>${esc(item)}</span>`).join("") : `<span>Clear</span>`;
 }
 
@@ -3384,7 +3553,8 @@ function boardSpaceSnapshotHtml(limit = 4) {
     const influence = factionIds.some(id => Number(space.influence[id]) > 0);
     const units = factionIds.some(id => Number(space.units[id]) > 0);
     const markers = space.markers && Object.values(space.markers).some(value => !!value);
-    return influence || units || markers || space.control !== "coalition" || space.notes;
+    const guideTokens = Array.isArray(space.guideTokens) && space.guideTokens.length > 0;
+    return influence || units || markers || guideTokens || space.control !== "coalition" || space.notes;
   });
   if (!activeSpaces.length) return `<div class="small-note">No space-level changes entered yet. Use Board State or Apply board effect to fill the monitor as play unfolds.</div>`;
   return `<div class="space-snapshot">
@@ -3429,6 +3599,13 @@ function spaceEditorHtml() {
         <div>
           <div class="context-label">Parliamentary Control</div>
           <select class="select-input" onchange="setSpaceControl('${spaceId}', this.value)">${selectOptionsHtml(controlOptions, space.control)}</select>
+        </div>
+        <div>
+          <div class="context-label">Supremacy</div>
+          <select class="select-input" onchange="setSpaceSupremacy('${spaceId}', this.value)">
+            <option value="" ${!space.supremacy ? "selected" : ""}>None</option>
+            ${factionOptionsHtml(space.supremacy)}
+          </select>
         </div>
         <div>
           <div class="context-label">Assassinations</div>
@@ -3503,6 +3680,10 @@ function spaceEditorHtml() {
           ${numberInputHtml(space.markers.conservativeClique, `setSpaceMarker('${spaceId}', 'conservativeClique', this.value)`, 0, 9)}
         </div>
       </div>
+    </div>
+    <div class="walk-block">
+      <div class="field-label">Guide tokens</div>
+      <input class="text-input compact-input" value="${esc((space.guideTokens || []).join(', '))}" oninput="setSpaceGuideTokens('${spaceId}', this.value)" placeholder="Visual guide tokens not yet modeled elsewhere">
     </div>
     <div class="walk-block">
       <div class="field-label">Space notes</div>
@@ -5265,9 +5446,11 @@ window.applyBoardEffect = applyBoardEffect;
 window.setSelectedSpace = setSelectedSpace;
 window.setSpacePopulation = setSpacePopulation;
 window.setSpaceControl = setSpaceControl;
+window.setSpaceSupremacy = setSpaceSupremacy;
 window.setSpaceValue = setSpaceValue;
 window.setSpaceMarker = setSpaceMarker;
 window.setSpaceNotes = setSpaceNotes;
+window.setSpaceGuideTokens = setSpaceGuideTokens;
 window.toggleSequenceCheck = toggleSequenceCheck;
 window.continueSequence = continueSequence;
 window.jumpToSequencePhase = jumpToSequencePhase;
