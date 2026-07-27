@@ -1,5 +1,5 @@
 const APP_NAME = "The Weimar Republic Companion";
-const APP_BUILD = "phase-23-space-values";
+const APP_BUILD = "phase-24-piece-clarity";
 const LOCAL_SAVE_KEY = "wr-companion-state-v6";
 const AUTO_SAVE_DELAY_MS = 350;
 
@@ -284,7 +284,14 @@ const spaceAliases = {
 
 const controlOptions = [["uncontrolled", "Uncontrolled"], ...factionIds.map(id => [id, factions[id].short])];
 
-function guideSpace({ c = 0, k = 0, n = 0, r = 0, cu = 0, ku = 0, nu = 0, ru = 0, kc = 0, nc = 0, cc = 0, sup = "", strike = false, uprising = false, yl = false, bl = false, assassinations = "", tokens = [], notes = "" } = {}) {
+const unitPieces = {
+  coalition: { label: "Reichs/FK", full: "Coalition Reichswehr/Freikorps units" },
+  kpd: { label: "Militia", full: "KPD Worker Militia units" },
+  nsdap: { label: "SA", full: "NSDAP SA units" },
+  radical_conservatives: { label: "Rogue FK", full: "Radical Conservative Rogue Freikorps units" }
+};
+
+function guideSpace({ c = 0, k = 0, n = 0, r = 0, cu = 0, ku = 0, nu = 0, ru = 0, kc = 0, nc = 0, cc = 0, sup = "", strike = false, uprising = false, yl = 0, bl = 0, assassinations = "", tokens = [], notes = "" } = {}) {
   return {
     supremacy: sup,
     influence: { coalition: c, kpd: k, nsdap: n, radical_conservatives: r },
@@ -296,8 +303,8 @@ function guideSpace({ c = 0, k = 0, n = 0, r = 0, cu = 0, ku = 0, nu = 0, ru = 0
       kpdCadre: kc,
       nsdapCadre: nc,
       conservativeClique: cc,
-      yellowLeverage: yl,
-      blackLeverage: bl,
+      yellowLeverage: yl === true ? 1 : yl,
+      blackLeverage: bl === true ? 1 : bl,
       assassinations
     },
     notes
@@ -334,9 +341,9 @@ const scenarioSpaceSetups = {
     provinz_westfalen: guideSpace({ c: 4, k: 3 }),
     sachsen: guideSpace({ k: 2, ku: 1, sup: "kpd", strike: true, tokens: ["KPD unit strength 1"] }),
     rheinprovinz: guideSpace({ c: 5, k: 4 }),
-    bayern: guideSpace({ c: 2, k: 3, n: 1, r: 5, ru: 1, nc: 1, sup: "coalition", bl: true, tokens: ["Black Leverage x2", "RC unit block"], notes: "Graphic Guide A shows two black Leverage markers." }),
-    muenchen: guideSpace({ c: 1, k: 1, n: 1, r: 1, cu: 1, nc: 1, sup: "coalition", tokens: ["Coalition unit strength 2", "KPD unit strength 2", "NSDAP unit strength 1"] }),
-    berlin: guideSpace({ c: 2, k: 2, r: 2, cu: 2, ku: 2, kc: 1, sup: "coalition", tokens: ["Coalition unit strength 2 x2", "KPD unit strength 1 x2", "RC unit strength 2 x2"] })
+    bayern: guideSpace({ c: 2, k: 3, n: 1, r: 5, ru: 1, nc: 1, sup: "coalition", bl: 2, tokens: ["RC unit block"], notes: "Graphic Guide A shows two black Leverage markers." }),
+    muenchen: guideSpace({ c: 1, k: 1, n: 1, r: 1, cu: 1, ku: 1, nu: 1, nc: 1, sup: "coalition", tokens: ["Coalition unit strength 2", "KPD unit strength 2", "NSDAP unit strength 1"] }),
+    berlin: guideSpace({ c: 2, k: 2, r: 2, cu: 2, ku: 2, ru: 2, kc: 1, sup: "coalition", tokens: ["Coalition unit strength 2 x2", "KPD unit strength 1 x2", "RC unit strength 2 x2"] })
   },
   revolution_1919: {
     ...guideCommonCrisisNorth,
@@ -345,7 +352,7 @@ const scenarioSpaceSetups = {
     rheinprovinz: guideSpace({ c: 5, k: 3 }),
     bayern: guideSpace({ c: 4, k: 2, r: 3, ru: 1 }),
     muenchen: guideSpace({ c: 1, k: 1, n: 1, r: 1, cu: 1, sup: "coalition", tokens: ["Coalition unit strength 2"] }),
-    berlin: guideSpace({ c: 2, k: 2, r: 1, cu: 2, ku: 1, sup: "coalition", tokens: ["Coalition unit strength 2 x2", "KPD unit strength 1", "RC unit strength 2"] })
+    berlin: guideSpace({ c: 2, k: 2, r: 1, cu: 2, ku: 1, ru: 1, sup: "coalition", tokens: ["Coalition unit strength 2 x2", "KPD unit strength 1", "RC unit strength 2"] })
   },
   new_hope_1924: {
     schleswig_holstein: guideSpace({ c: 1, r: 1 }),
@@ -369,18 +376,18 @@ const scenarioSpaceSetups = {
     hessen: guideSpace({ c: 1 }),
     baden: guideSpace({ c: 2, r: 1 }),
     wuerttemberg: guideSpace({ c: 2, r: 1 }),
-    bayern: guideSpace({ c: 4, k: 2, n: 1, r: 2, ru: 1, bl: true, tokens: ["RC unit block"] }),
+    bayern: guideSpace({ c: 4, k: 2, n: 1, r: 2, ru: 1, bl: 1, tokens: ["RC unit block"] }),
     hamburg: guideSpace({ c: 1 }),
     koeln: guideSpace({ c: 1 }),
-    muenchen: guideSpace({ c: 1, n: 1, r: 1, nc: 1, sup: "nsdap", tokens: ["Coalition unit strength 1"] }),
-    berlin: guideSpace({ c: 3, k: 2, r: 1, cu: 1, ku: 1, kc: 1, sup: "coalition", tokens: ["Coalition unit strength 3", "KPD unit strength 1", "RC unit strength 2"] })
+    muenchen: guideSpace({ c: 1, n: 1, r: 1, cu: 1, nc: 1, sup: "nsdap", tokens: ["Coalition unit strength 1"] }),
+    berlin: guideSpace({ c: 3, k: 2, r: 1, cu: 1, ku: 1, ru: 1, kc: 1, sup: "coalition", tokens: ["Coalition unit strength 3", "KPD unit strength 1", "RC unit strength 2"] })
   },
   black_sun_1928: {
     schleswig_holstein: guideSpace({ c: 1 }),
     mecklenburg: guideSpace({ c: 1 }),
     pommern: guideSpace({ c: 1, r: 1 }),
     posen_westpreussen: guideSpace({ c: 1, r: 1 }),
-    ostpreussen: guideSpace({ r: 2, ru: 1, sup: "radical_conservatives", bl: true, tokens: ["RC unit strength 2", "RC unit block"], notes: "Graphic Guide D also shows a strength-2 token." }),
+    ostpreussen: guideSpace({ r: 2, ru: 1, sup: "radical_conservatives", bl: 1, tokens: ["RC unit strength 2", "RC unit block"], notes: "Graphic Guide D also shows a strength-2 token." }),
     oldenburg: guideSpace({ c: 1 }),
     provinz_hannover: guideSpace({ c: 2 }),
     provinz_sachsen: guideSpace({ c: 2 }),
@@ -397,11 +404,11 @@ const scenarioSpaceSetups = {
     hessen: guideSpace({ c: 1 }),
     baden: guideSpace({ c: 2, r: 2 }),
     wuerttemberg: guideSpace({ c: 2, r: 2 }),
-    bayern: guideSpace({ c: 4, k: 1, n: 2, r: 4, cu: 1, ru: 1, sup: "radical_conservatives", bl: true, tokens: ["KPD unit strength 2", "Coalition unit strength 1", "RC unit block"] }),
+    bayern: guideSpace({ c: 4, k: 1, n: 2, r: 4, cu: 1, ku: 1, ru: 1, sup: "radical_conservatives", bl: 1, tokens: ["KPD unit strength 2", "Coalition unit strength 1", "RC unit block"] }),
     hamburg: guideSpace({ c: 1, ku: 1, sup: "kpd", tokens: ["KPD unit strength 1"] }),
     koeln: guideSpace({ c: 1, k: 1, ku: 2, kc: 1, sup: "kpd", tokens: ["KPD unit strength 1 x2"] }),
-    muenchen: guideSpace({ c: 2, n: 1, r: 1, cu: 1, nc: 1, sup: "coalition", tokens: ["Coalition unit strength 1", "Coalition unit strength 3", "NSDAP unit strength 1"] }),
-    berlin: guideSpace({ c: 3, k: 1, n: 1, r: 1, cu: 1, ku: 1, yl: true, sup: "coalition", tokens: ["Coalition unit strength 1", "Coalition unit strength 3", "KPD unit strength 1", "RC unit strength 2"] })
+    muenchen: guideSpace({ c: 2, n: 1, r: 1, cu: 1, nu: 1, nc: 1, sup: "coalition", tokens: ["Coalition unit strength 1", "Coalition unit strength 3", "NSDAP unit strength 1"] }),
+    berlin: guideSpace({ c: 3, k: 1, n: 1, r: 1, cu: 1, ku: 1, ru: 1, yl: 1, sup: "coalition", tokens: ["Coalition unit strength 1", "Coalition unit strength 3", "KPD unit strength 1", "RC unit strength 2"] })
   },
   fate_1919: {
     ...guideCommonCrisisNorth,
@@ -410,7 +417,7 @@ const scenarioSpaceSetups = {
     rheinprovinz: guideSpace({ c: 5, k: 3 }),
     bayern: guideSpace({ c: 4, k: 2, r: 3, ru: 1 }),
     muenchen: guideSpace({ c: 1, k: 1, n: 1, r: 1, cu: 1, sup: "coalition", tokens: ["Coalition unit strength 2"] }),
-    berlin: guideSpace({ c: 2, k: 2, r: 1, cu: 2, ku: 1, sup: "coalition", tokens: ["Coalition unit strength 2 x2", "KPD unit strength 1", "RC unit strength 2"] })
+    berlin: guideSpace({ c: 2, k: 2, r: 1, cu: 2, ku: 1, ru: 1, sup: "coalition", tokens: ["Coalition unit strength 2 x2", "KPD unit strength 1", "RC unit strength 2"] })
   }
 };
 
@@ -1447,8 +1454,8 @@ function blankSpaceState(spaceId) {
       kpdCadre: 0,
       nsdapCadre: 0,
       conservativeClique: 0,
-      yellowLeverage: false,
-      blackLeverage: false,
+      yellowLeverage: 0,
+      blackLeverage: 0,
       assassinations: ""
     },
     notes: ""
@@ -1477,8 +1484,8 @@ function normalizeSpaceState(spaceId, existing = {}) {
       kpdCadre: clampInt(markers.kpdCadre, 0, 9),
       nsdapCadre: clampInt(markers.nsdapCadre, 0, 9),
       conservativeClique: clampInt(markers.conservativeClique, 0, 9),
-      yellowLeverage: !!markers.yellowLeverage,
-      blackLeverage: !!markers.blackLeverage,
+      yellowLeverage: markers.yellowLeverage === true ? 1 : clampInt(markers.yellowLeverage, 0, 9),
+      blackLeverage: markers.blackLeverage === true ? 1 : clampInt(markers.blackLeverage, 0, 9),
       assassinations: markers.assassinations || ""
     },
     notes: existing.notes || ""
@@ -2191,7 +2198,7 @@ function applyBoardEffect() {
   } else if (draft.mode === "marker") {
     const marker = draft.marker;
     if (!Object.prototype.hasOwnProperty.call(space.markers, marker)) return;
-    if (marker === "kpdCadre" || marker === "nsdapCadre" || marker === "conservativeClique") {
+    if (["kpdCadre", "nsdapCadre", "conservativeClique", "yellowLeverage", "blackLeverage"].includes(marker)) {
       space.markers[marker] = applyNumberOperation(space.markers[marker], draft.markerOperation === "clear" ? "set" : draft.markerOperation, draft.markerOperation === "clear" ? 0 : draft.amount);
     } else if (marker === "assassinations") {
       space.markers.assassinations = draft.markerOperation === "clear" ? "" : draft.markerValue || "yellow_red";
@@ -2270,7 +2277,7 @@ function setSpaceValue(spaceId, group, factionId, value) {
 function setSpaceMarker(spaceId, marker, value) {
   const space = state.boardState.spaces[normalizeSpaceId(spaceId)];
   if (!space || !Object.prototype.hasOwnProperty.call(space.markers, marker)) return;
-  if (marker === "kpdCadre" || marker === "nsdapCadre" || marker === "conservativeClique") {
+  if (["kpdCadre", "nsdapCadre", "conservativeClique", "yellowLeverage", "blackLeverage"].includes(marker)) {
     space.markers[marker] = clampInt(value, 0, 9);
   } else if (marker === "assassinations") {
     space.markers.assassinations = value || "";
@@ -3264,7 +3271,7 @@ function effectFieldsHtml(draft) {
   }
 
   if (draft.mode === "marker") {
-    const numericMarker = ["kpdCadre", "nsdapCadre", "conservativeClique"].includes(draft.marker);
+    const numericMarker = ["kpdCadre", "nsdapCadre", "conservativeClique", "yellowLeverage", "blackLeverage"].includes(draft.marker);
     const assassinationMarker = draft.marker === "assassinations";
     return `<div class="choice-grid">
       ${spacePicker}
@@ -3575,9 +3582,9 @@ function markerSummaryHtml(space) {
   if (space.markers.reform) markers.push("Reform");
   if (space.markers.kpdCadre) markers.push(`KPD Cadre ${space.markers.kpdCadre}`);
   if (space.markers.nsdapCadre) markers.push(`NSDAP Cadre ${space.markers.nsdapCadre}`);
-  if (space.markers.conservativeClique) markers.push(`Clique ${space.markers.conservativeClique}`);
-  if (space.markers.yellowLeverage) markers.push("Yellow Leverage");
-  if (space.markers.blackLeverage) markers.push("Black Leverage");
+  if (space.markers.conservativeClique) markers.push(`Conservative Clique ${space.markers.conservativeClique}`);
+  if (space.markers.yellowLeverage) markers.push(`Yellow Leverage ${space.markers.yellowLeverage}`);
+  if (space.markers.blackLeverage) markers.push(`Black Leverage ${space.markers.blackLeverage}`);
   if (space.markers.assassinations) markers.push(space.markers.assassinations === "brown_black" ? "Brown/black Assassinations" : "Yellow/red Assassinations");
   for (const token of space.guideTokens || []) markers.push(token);
   return markers.length ? markers.map(item => `<span>${esc(item)}</span>`).join("") : `<span>Clear</span>`;
@@ -3638,7 +3645,7 @@ function spaceInfluenceTokensHtml(space) {
 }
 
 function spaceUnitTokensHtml(space) {
-  const tokens = factionIds.map(id => visualTokenHtml(factions[id].short[0] + "U", space.units[id], `unit ${factions[id].tone}`, `${factions[id].short} units`)).join("");
+  const tokens = factionIds.map(id => visualTokenHtml(unitPieces[id].label, space.units[id], `unit ${factions[id].tone}`, unitPieces[id].full)).join("");
   return tokens || `<span class="empty-token">No units</span>`;
 }
 
@@ -3650,8 +3657,8 @@ function spaceMarkerTokensHtml(space) {
     visualTokenHtml("KPD Cadre", space.markers.kpdCadre, "cadre kpd", "KPD Cadres"),
     visualTokenHtml("NSDAP Cadre", space.markers.nsdapCadre, "cadre nsdap", "NSDAP Cadres"),
     visualTokenHtml("Clique", space.markers.conservativeClique, "cadre radcon", "Conservative Cliques"),
-    booleanMarkerTokenHtml(space.markers.yellowLeverage, "Yellow Leverage", "yellow-leverage"),
-    booleanMarkerTokenHtml(space.markers.blackLeverage, "Black Leverage", "black-leverage"),
+    visualTokenHtml("Yellow Leverage", space.markers.yellowLeverage, "marker yellow-leverage", "Yellow Leverage markers"),
+    visualTokenHtml("Black Leverage", space.markers.blackLeverage, "marker black-leverage", "Black Leverage markers"),
     space.markers.assassinations ? `<span class="visual-marker assassinations">${space.markers.assassinations === "brown_black" ? "Brown/black" : "Yellow/red"} Assassinations</span>` : ""
   ].join("");
   return markers || `<span class="empty-token">No markers</span>`;
@@ -3709,6 +3716,26 @@ function mapSpacePickerHtml(spaceId) {
       ${btn("Open full board editor", "editBoardStateFlow()")}
     </div>
   </div>`;
+}
+
+function pieceLegendHtml() {
+  return `<details class="compact-details">
+    <summary>Piece names used here</summary>
+    <div class="walk-block">
+      <div class="field-label">Unit buckets</div>
+      <div class="pill-list">${factionIds.map(id => `<span>${esc(unitPieces[id].label)}: ${esc(unitPieces[id].full)}</span>`).join("")}</div>
+    </div>
+    <div class="walk-block">
+      <div class="field-label">Markers</div>
+      <div class="pill-list">
+        <span>Conservative Clique: RC marker, not a unit</span>
+        <span>Yellow Leverage: Coalition map Leverage</span>
+        <span>Black Leverage: Radical Conservative map Leverage</span>
+        <span>Cadres: KPD or NSDAP cadre markers</span>
+        <span>Strike / Uprising / Reform / Assassinations</span>
+      </div>
+    </div>
+  </details>`;
 }
 
 function boardSpaceSnapshotHtml(limit = 4) {
@@ -3794,8 +3821,9 @@ function spaceEditorHtml() {
     <div class="walk-block">
       <div class="field-label">Units</div>
       <div class="space-value-grid">
-        ${factionIds.map(id => `<label><span>${esc(factions[id].short)}</span>${numberInputHtml(space.units[id], `setSpaceValue('${spaceId}', 'units', '${id}', this.value)`, 0, 99)}</label>`).join("")}
+        ${factionIds.map(id => `<label><span>${esc(unitPieces[id].label)}</span>${numberInputHtml(space.units[id], `setSpaceValue('${spaceId}', 'units', '${id}', this.value)`, 0, 99)}</label>`).join("")}
       </div>
+      <div class="small-note">${factionIds.map(id => `${unitPieces[id].label}: ${unitPieces[id].full}`).join(" | ")}</div>
     </div>
     <div class="walk-block">
       <div class="field-label">Markers</div>
@@ -3823,17 +3851,11 @@ function spaceEditorHtml() {
         </div>
         <div>
           <div class="context-label">Yellow Leverage</div>
-          <div class="segmented two">
-            <button class="${space.markers.yellowLeverage ? "selected" : ""}" onclick="setSpaceMarker('${spaceId}', 'yellowLeverage', true)">On</button>
-            <button class="${!space.markers.yellowLeverage ? "selected" : ""}" onclick="setSpaceMarker('${spaceId}', 'yellowLeverage', false)">Off</button>
-          </div>
+          ${numberInputHtml(space.markers.yellowLeverage, `setSpaceMarker('${spaceId}', 'yellowLeverage', this.value)`, 0, 9)}
         </div>
         <div>
           <div class="context-label">Black Leverage</div>
-          <div class="segmented two">
-            <button class="${space.markers.blackLeverage ? "selected danger" : ""}" onclick="setSpaceMarker('${spaceId}', 'blackLeverage', true)">On</button>
-            <button class="${!space.markers.blackLeverage ? "selected" : ""}" onclick="setSpaceMarker('${spaceId}', 'blackLeverage', false)">Off</button>
-          </div>
+          ${numberInputHtml(space.markers.blackLeverage, `setSpaceMarker('${spaceId}', 'blackLeverage', this.value)`, 0, 9)}
         </div>
         <div>
           <div class="context-label">KPD Cadre</div>
@@ -4415,6 +4437,7 @@ function renderMapSpace(app) {
         </div>
         ${notice}
         ${mapSpaceVisualHtml(space)}
+        ${pieceLegendHtml()}
         ${mapSpacePickerHtml(space.id)}
         <div class="sequence-actions">
           ${btn("Continue", "closeSpaceMapView()", "primary")}
