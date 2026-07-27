@@ -1,5 +1,5 @@
 const APP_NAME = "The Weimar Republic Companion";
-const APP_BUILD = "phase-17-step-flow";
+const APP_BUILD = "phase-19-board-order-spaces";
 const LOCAL_SAVE_KEY = "wr-companion-state-v6";
 const AUTO_SAVE_DELAY_MS = 350;
 
@@ -231,27 +231,36 @@ const actionChoices = [
   }
 ];
 
-const electionRegions = [
-  "Hamburg",
-  "Muenchen",
-  "Koeln",
-  "Berlin",
-  "Bayern",
-  "Northern States",
-  "Southern States",
-  "Prussian Provinces"
+const mapSpaces = [
+  { id: "schleswig_holstein", label: "Schleswig-Holstein", type: "region" },
+  { id: "mecklenburg", label: "Mecklenburg", type: "region" },
+  { id: "pommern", label: "Pommern", type: "region" },
+  { id: "posen_westpreussen", label: "Posen-Westpreussen", type: "region" },
+  { id: "ostpreussen", label: "Ostpreussen", type: "region" },
+  { id: "oldenburg", label: "Oldenburg", type: "region" },
+  { id: "provinz_hannover", label: "Provinz Hannover", type: "region" },
+  { id: "provinz_sachsen", label: "Provinz Sachsen", type: "region" },
+  { id: "brandenburg", label: "Brandenburg", type: "region" },
+  { id: "provinz_westfalen", label: "Provinz Westfalen", type: "region" },
+  { id: "waldeck_lippe", label: "Waldeck and Lippe", type: "region" },
+  { id: "braunschweig_anhalt", label: "Braunschweig and Anhalt", type: "region" },
+  { id: "sachsen", label: "Sachsen", type: "region" },
+  { id: "niederschlesien", label: "Niederschlesien", type: "region" },
+  { id: "oberschlesien", label: "Oberschlesien", type: "region" },
+  { id: "rheinprovinz", label: "Rheinprovinz", type: "region" },
+  { id: "hessenprovinz", label: "Hessenprovinz", type: "region" },
+  { id: "thueringen", label: "Thueringen", type: "region" },
+  { id: "hessen", label: "Hessen", type: "region" },
+  { id: "baden", label: "Baden", type: "region" },
+  { id: "wuerttemberg", label: "Wuerttemberg", type: "region" },
+  { id: "bayern", label: "Bayern", type: "region" },
+  { id: "hamburg", label: "Hamburg", type: "city" },
+  { id: "koeln", label: "Koeln", type: "city" },
+  { id: "muenchen", label: "Muenchen", type: "city" },
+  { id: "berlin", label: "Berlin", type: "city" }
 ];
 
-const mapSpaces = [
-  { id: "berlin", label: "Berlin", type: "city" },
-  { id: "hamburg", label: "Hamburg", type: "city" },
-  { id: "muenchen", label: "Muenchen", type: "city" },
-  { id: "koeln", label: "Koeln", type: "city" },
-  { id: "bayern", label: "Bayern", type: "region" },
-  { id: "northern_states", label: "Northern States", type: "region" },
-  { id: "southern_states", label: "Southern States", type: "region" },
-  { id: "prussian_provinces", label: "Prussian Provinces", type: "region" }
-];
+const electionRegions = mapSpaces.map(space => space.label);
 
 const spaceAliases = {
   koln: "koeln",
@@ -259,9 +268,18 @@ const spaceAliases = {
   munchen: "muenchen",
   munich: "muenchen",
   bavaria: "bayern",
-  "clique a": "prussian_provinces",
-  "clique b": "northern_states",
-  "clique c": "southern_states"
+  thuringen: "thueringen",
+  thuringia: "thueringen",
+  wurttemberg: "wuerttemberg",
+  "posen westpreussen": "posen_westpreussen",
+  "waldeck and lippe": "waldeck_lippe",
+  "braunschweig and anhalt": "braunschweig_anhalt",
+  "northern states": "schleswig_holstein",
+  "southern states": "bayern",
+  "prussian provinces": "brandenburg",
+  "clique a": "provinz_westfalen",
+  "clique b": "provinz_hannover",
+  "clique c": "bayern"
 };
 
 const controlOptions = [["uncontrolled", "Uncontrolled"], ...factionIds.map(id => [id, factions[id].short])];
@@ -1184,6 +1202,8 @@ const state = {
   selectedActionId: "",
   actionContext: {},
   soloSetupComplete: false,
+  boardReturnScreen: "sequence",
+  boardNotice: "",
   boardState: {
     progress: 0,
     reaction: 0,
@@ -1268,8 +1288,9 @@ function clampInt(value, min = 0, max = 99) {
 function normalizeSpaceId(value) {
   const raw = String(value || "").trim();
   if (!raw) return "berlin";
-  const slug = raw.toLowerCase().replaceAll("ü", "ue").replaceAll("ö", "oe").replaceAll("ä", "ae").replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
-  const spaced = raw.toLowerCase().replaceAll("ü", "ue").replaceAll("ö", "oe").replaceAll("ä", "ae").replace(/[^a-z0-9]+/g, " ").trim();
+  const normalized = raw.toLowerCase().replaceAll("ü", "ue").replaceAll("ö", "oe").replaceAll("ä", "ae").replaceAll("ß", "ss");
+  const slug = normalized.replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+  const spaced = normalized.replace(/[^a-z0-9]+/g, " ").trim();
   return mapSpaces.some(space => space.id === slug) ? slug : spaceAliases[slug] || spaceAliases[spaced] || "berlin";
 }
 
@@ -1402,10 +1423,12 @@ function normalizeState() {
   if (typeof state.selectedActionId !== "string") state.selectedActionId = "";
   if (!state.actionContext || typeof state.actionContext !== "object") state.actionContext = {};
   state.soloSetupComplete = !!state.soloSetupComplete;
-  const knownScreens = ["solo_setup", "scenario_setup", "sequence", "faction_turn", "action_resolve", "board_state", "factions", "rules", "notes", "save_load", "result"];
+  const knownScreens = ["solo_setup", "scenario_setup", "sequence", "turn_order", "faction_turn", "action_resolve", "board_state", "factions", "rules", "notes", "save_load", "result"];
   if (!knownScreens.includes(state.screen) || state.screen === "dashboard") {
     state.screen = state.soloSetupComplete ? (state.scenarioId ? "sequence" : "scenario_setup") : "solo_setup";
   }
+  if (!knownScreens.includes(state.boardReturnScreen) || state.boardReturnScreen === "board_state") state.boardReturnScreen = "sequence";
+  if (typeof state.boardNotice !== "string") state.boardNotice = "";
   if (!state.boardState || typeof state.boardState !== "object") state.boardState = {};
   const existingBoard = state.boardState;
   state.boardState = {
@@ -1485,6 +1508,10 @@ function currentFactionActions() {
 
 function findAction(actionId) {
   return currentFactionActions().find(action => action.id === actionId) || null;
+}
+
+function selectedActionForFocus() {
+  return findAction(state.selectedActionId) || findAction(defaultActionId()) || currentFactionActions()[0] || null;
 }
 
 function defaultActionId() {
@@ -1615,10 +1642,24 @@ function takeFactionTurn() {
 
 function editBoardStateFlow() {
   pushHistory();
+  const returnScreens = ["solo_setup", "scenario_setup", "sequence", "faction_turn", "action_resolve"];
+  state.boardReturnScreen = returnScreens.includes(state.screen) ? state.screen : "sequence";
   state.previousActionPage = state.actionPage || "turn";
   state.actionPage = "board";
   state.screen = "board_state";
   render();
+}
+
+function editTurnOrderFlow() {
+  setScreen("turn_order");
+}
+
+function saveTurnOrderFlow() {
+  pushHistory();
+  state.activeTurnIndex = 0;
+  state.activeFaction = state.turnOrder[0] || "coalition";
+  resetCurrentFactionPrompts();
+  setScreen("sequence");
 }
 
 function chooseTurnOption(value) {
@@ -1919,6 +1960,7 @@ function updateEffectDraft(field, value) {
     [field]: field === "space" ? normalizeSpaceId(value) : value
   };
   if (field === "space") state.boardState.selectedSpace = normalizeSpaceId(value);
+  state.boardNotice = "";
   scheduleAutoSave();
   render();
 }
@@ -2005,6 +2047,7 @@ function applyBoardEffect() {
     summary
   });
   state.effectHistory = state.effectHistory.slice(0, 100);
+  state.boardNotice = summary ? `Applied to board state: ${summary}` : "Applied to board state.";
   delete state.effectDrafts[context.key];
   render();
 }
@@ -2144,7 +2187,8 @@ function saveTurnSetup() {
 function saveBoardStatePage() {
   pushHistory();
   state.actionPage = state.previousActionPage || "turn";
-  state.screen = "sequence";
+  state.screen = state.boardReturnScreen || "sequence";
+  state.boardReturnScreen = "sequence";
   render();
 }
 
@@ -2643,6 +2687,8 @@ function resetApp() {
   state.selectedActionId = "";
   state.actionContext = {};
   state.soloSetupComplete = false;
+  state.boardReturnScreen = "sequence";
+  state.boardNotice = "";
   state.boardState = {
     progress: 0,
     reaction: 0,
@@ -2956,6 +3002,7 @@ function choiceTrackerHtml() {
   const context = currentChoiceContext();
   const draft = currentEffectDraft();
   const actionText = context.actionLabel || "Current step";
+  const notice = state.boardNotice ? `<div class="toast-note">${esc(state.boardNotice)}</div>` : "";
   return `<section class="board-effect-panel">
     <div class="section-head">
       <div>
@@ -2970,6 +3017,7 @@ function choiceTrackerHtml() {
     </div>
     ${effectFieldsHtml(draft)}
     ${effectLegalityHintHtml(draft)}
+    ${notice}
     <div class="sequence-actions">
       ${btn("Apply to board state", "applyBoardEffect()", "primary")}
     </div>
@@ -3606,7 +3654,7 @@ function compactActionPickerHtml() {
 }
 
 function selectedActionDetailHtml() {
-  const action = findAction(state.selectedActionId) || findAction(defaultActionId()) || currentFactionActions()[0];
+  const action = selectedActionForFocus();
   if (!action) return "";
   const status = actionStatus(action);
   const blockedText = status.blocked.map(key => actionStateQuestions[key]);
@@ -3625,11 +3673,11 @@ function selectedActionDetailHtml() {
     ${unknownText.length ? `<div class="warn-box soft"><strong>Confirm before resolving:</strong>${listHtml(unknownText)}</div>` : ""}
     <div class="detail-grid">
       <div>
-        <div class="field-label">Requirements</div>
+        <div class="field-label">What must be true</div>
         ${listHtml(action.requires)}
       </div>
       ${action.procedure ? `<div>
-        <div class="field-label">Procedure</div>
+        <div class="field-label">What to do now</div>
         ${listHtml(action.procedure)}
       </div>` : ""}
       ${action.warnings ? `<div>
@@ -3796,6 +3844,39 @@ function renderScenarioSetup(app) {
   `;
 }
 
+function renderTurnOrder(app) {
+  const momentum = factions[state.momentumFaction] || factions.coalition;
+  app.innerHTML = `
+    <section class="panel flow-panel">
+      ${orientationStripHtml()}
+      <div class="section-head">
+        <div>
+          <div class="kicker">Turn Order</div>
+          <h1>Who acts next?</h1>
+          <p class="muted">Set Momentum and arrange the faction order for the current year.</p>
+        </div>
+        ${badge(momentum.short, momentum.tone)}
+      </div>
+      <div class="question-stack">
+        <div class="question-card">
+          <div class="field-label">Momentum faction</div>
+          ${momentumButtonsHtml()}
+        </div>
+        <div class="question-card">
+          <div class="field-label">Faction order</div>
+          ${turnOrderSetupHtml()}
+          <p class="small-note">Saving restarts the Action Step at slot 1 with the first faction shown here.</p>
+        </div>
+      </div>
+      <div class="info-band">At New Year, the Momentum faction determines turn order. If the Momentum faction is bot-controlled, use the relevant bot-card faction order and put that NP faction last when required by the solo rules.</div>
+      <div class="sequence-actions">
+        ${btn("Save turn order", "saveTurnOrderFlow()", "primary")}
+      </div>
+    </section>
+    ${flowStickyHtml()}
+  `;
+}
+
 function turnOrderSummaryHtml() {
   return `<div class="turn-rail">
     ${state.turnOrder.map((id, index) => {
@@ -3811,6 +3892,18 @@ function turnOrderSummaryHtml() {
       </div>`;
     }).join("")}
   </div>`;
+}
+
+function turnOrderSummaryBlockHtml() {
+  const momentum = factions[state.momentumFaction] || factions.coalition;
+  return `<section class="turn-order-summary-block">
+    <div class="field-label">Turn order</div>
+    ${turnOrderSummaryHtml()}
+    <div class="small-note">Momentum: ${esc(momentum.short)}. The Momentum faction determines turn order for the upcoming year.</div>
+    <div class="sequence-actions compact-sequence-actions">
+      ${btn("Edit turn order", "editTurnOrderFlow()")}
+    </div>
+  </section>`;
 }
 
 function sequenceOverviewControlsHtml() {
@@ -3837,6 +3930,7 @@ function renderSequence(app) {
   const era = eraForYear(state.year);
   app.innerHTML = `
     <section class="panel flow-panel">
+      ${orientationStripHtml()}
       <div class="section-head">
         <div>
           <div class="kicker">Sequence Of Play</div>
@@ -3850,7 +3944,7 @@ function renderSequence(app) {
       </div>
       ${sequenceProgressHtml()}
       ${scenarioSummaryHtml()}
-      ${turnOrderSummaryHtml()}
+      ${turnOrderSummaryBlockHtml()}
       ${controllerSummaryHtml()}
       ${sequenceOverviewControlsHtml()}
       <details class="compact-details turn-aid-details">
@@ -3879,6 +3973,7 @@ function renderFactionTurn(app) {
   if (isActiveBot()) {
     app.innerHTML = `
       <section class="panel flow-panel ${active.tone}">
+        ${orientationStripHtml()}
         ${pageHeaderHtml("Faction Turn", `${active.short}: bot turn`, "Reveal the bot card and resolve only this faction's turn.")}
         ${botActionSubpageHtml()}
         <div class="sequence-actions">
@@ -3892,6 +3987,7 @@ function renderFactionTurn(app) {
   }
   app.innerHTML = `
     <section class="panel flow-panel ${active.tone}">
+      ${orientationStripHtml()}
       <div class="section-head">
         <div>
           <div class="kicker">Faction Turn</div>
@@ -3910,6 +4006,7 @@ function humanActionBoardHtml() {
   if (state.actionSubpage === "event" || state.actionSubpage === "election" || state.actionSubpage === "done") {
     return humanActionSubpageHtml();
   }
+  const action = selectedActionForFocus();
   return `
     ${pageHeaderHtml("Action / Board", `${activeFaction().short}: choose and update`, "Pick the action, then adjust remembered board state as needed.")}
     ${actionPlanSummaryHtml()}
@@ -3918,10 +4015,11 @@ function humanActionBoardHtml() {
       ${compactActionPickerHtml()}
     </div>
     ${selectedActionDetailHtml()}
-    <details class="compact-details" open>
-      <summary>Board monitor</summary>
-      ${boardStateControlsHtml()}
-    </details>
+    ${actionRelevantBoardFactsHtml(action)}
+    ${choiceTrackerHtml()}
+    <div class="sequence-actions board-shortcut">
+      ${btn("Open full board", "editBoardStateFlow()")}
+    </div>
   `;
 }
 
@@ -3929,6 +4027,7 @@ function renderActionResolve(app) {
   const active = activeFaction();
   app.innerHTML = `
     <section class="panel flow-panel ${active.tone}">
+      ${orientationStripHtml()}
       ${isActiveBot() ? botActionSubpageHtml() : humanActionBoardHtml()}
       <div class="sequence-actions">
         ${continueButtonHtml()}
@@ -3942,6 +4041,7 @@ function renderActionResolve(app) {
 function renderBoardState(app) {
   app.innerHTML = `
     <section class="panel flow-panel">
+      ${orientationStripHtml()}
       ${boardStateCompactHtml()}
     </section>
     ${flowStickyHtml("board")}
@@ -4326,6 +4426,32 @@ function pageHeaderHtml(kicker, title, subtitle = "") {
   </div>`;
 }
 
+function currentOperationLabel() {
+  const phase = currentSequencePhase();
+  if (phase.id !== "action") return phase.title.replace(" Step", "");
+  if (state.screen === "faction_turn" || state.actionSubpage === "choice") return "Turn option";
+  if (state.actionSubpage === "event") return "Event";
+  if (state.actionSubpage === "action1") return requiredActionSlots().length > 1 ? "Action 1 of 2" : "Action 1";
+  if (state.actionSubpage === "action2") return "Action 2 of 2";
+  if (state.actionSubpage === "election") return "Election check";
+  if (state.actionSubpage === "bot_summary") return "Bot card";
+  if (state.actionSubpage === "bot_action1") return state.botTurn.summary === "event_two_actions" ? "Bot Action 1 of 2" : "Bot Action";
+  if (state.actionSubpage === "bot_action2") return "Bot Action 2 of 2";
+  if (state.actionSubpage === "bot_election") return "Bot election check";
+  return phase.title.replace(" Step", "");
+}
+
+function orientationStripHtml() {
+  const phase = currentSequencePhase();
+  const faction = activeFaction();
+  return `<div class="orientation-strip">
+    <span>${esc(state.year)} ${esc(currentHalfLabel().replace(" Year", ""))}</span>
+    <span>${esc(faction.short)}</span>
+    <span>${esc(phase.title.replace(" Step", ""))}</span>
+    <span>${esc(currentOperationLabel())}</span>
+  </div>`;
+}
+
 function boardSummaryLineHtml() {
   const board = state.boardState;
   return `<div class="board-summary-line">
@@ -4339,6 +4465,138 @@ function boardSummaryLineHtml() {
     <span>NSDAP ${esc(stanceLabel(board.nsdapStance))}</span>
     <span>${board.generalStrikeActive ? "Strike active" : "No strike"}</span>
   </div>`;
+}
+
+function yesNoUnknownControlHtml(key, yesActive, noActive) {
+  const value = state.actionContext[key];
+  const yesSelected = value === true || (value === undefined && yesActive);
+  const noSelected = value === false || (value === undefined && noActive);
+  const unknownSelected = value === undefined && !yesActive && !noActive;
+  return `<div class="segmented">
+    <button class="${yesSelected ? "selected" : ""}" onclick="setActionContext('${key}', 'yes')">Yes</button>
+    <button class="${noSelected ? "selected danger" : ""}" onclick="setActionContext('${key}', 'no')">No</button>
+    <button class="${unknownSelected ? "selected muted-choice" : ""}" onclick="setActionContext('${key}', 'unknown')">?</button>
+  </div>`;
+}
+
+function compactProgressSelectHtml() {
+  const options = Array.from({ length: 7 }, (_, value) => `<option value="${value}" ${state.boardState.progress === value ? "selected" : ""}>${value}</option>`).join("");
+  return `<select class="select-input" onchange="setBoardState('progress', this.value)">${options}</select>`;
+}
+
+function compactReactionSelectHtml() {
+  const options = Array.from({ length: 7 }, (_, value) => `<option value="${value}" ${state.boardState.reaction === value ? "selected" : ""}>${value}</option>`).join("");
+  return `<select class="select-input" onchange="setBoardState('reaction', this.value)">${options}</select>`;
+}
+
+function compactStanceSelectHtml(trackKey) {
+  return `<select class="select-input" onchange="setBoardState('${trackKey}', this.value)">
+    ${stanceOptions.map(([value, label]) => `<option value="${value}" ${state.boardState[trackKey] === value ? "selected" : ""}>${esc(label)}</option>`).join("")}
+  </select>`;
+}
+
+function actionFactControlHtml(key) {
+  const board = state.boardState;
+  if (key === "yellow_leverage_above_progress") {
+    return `<div class="context-item wide">
+      <div class="context-label">Yellow Leverage above Progress?</div>
+      <div class="choice-grid">
+        <div>${compactProgressSelectHtml()}</div>
+        <div><select class="select-input" onchange="setBoardState('yellowProgressLeverage', this.value)">
+          <option value="unknown" ${board.yellowProgressLeverage === "unknown" ? "selected" : ""}>Unknown</option>
+          <option value="above" ${board.yellowProgressLeverage === "above" ? "selected" : ""}>Yes, above current Progress</option>
+          <option value="none" ${board.yellowProgressLeverage === "none" ? "selected" : ""}>No</option>
+        </select></div>
+      </div>
+    </div>`;
+  }
+  if (key === "black_leverage_above_reaction") {
+    return `<div class="context-item wide">
+      <div class="context-label">Black Leverage above Reaction?</div>
+      <div class="choice-grid">
+        <div>${compactReactionSelectHtml()}</div>
+        <div><select class="select-input" onchange="setBoardState('blackReactionLeverage', this.value)">
+          <option value="unknown" ${board.blackReactionLeverage === "unknown" ? "selected" : ""}>Unknown</option>
+          <option value="above" ${board.blackReactionLeverage === "above" ? "selected" : ""}>Yes, above current Reaction</option>
+          <option value="none" ${board.blackReactionLeverage === "none" ? "selected" : ""}>No</option>
+        </select></div>
+      </div>
+    </div>`;
+  }
+  if (key === "reaction_can_advance") {
+    return `<div class="context-item wide">
+      <div class="context-label">Reaction / Progress cap</div>
+      <div class="choice-grid">
+        <div>${compactProgressSelectHtml()}</div>
+        <div>${compactReactionSelectHtml()}</div>
+      </div>
+      <div class="segmented two fact-toggle">
+        <button class="${!board.reactionLimitIgnored ? "selected" : ""}" onclick="setBoardState('reactionLimitIgnored', false)">Normal</button>
+        <button class="${board.reactionLimitIgnored ? "selected danger" : ""}" onclick="setBoardState('reactionLimitIgnored', true)">Ignored</button>
+      </div>
+    </div>`;
+  }
+  if (key === "coalition_influence_allowed") {
+    return `<div class="context-item wide">
+      <div class="context-label">Economy marker</div>
+      <div class="track-strip economy-track compact-economy-track">
+        ${economyOptions.map(([value, label]) => `<button class="${board.economy === value ? "selected" : ""}" onclick="setBoardState('economy', '${value}')">${esc(label)}</button>`).join("")}
+      </div>
+    </div>`;
+  }
+  if (key === "general_strike_clear") {
+    return `<div class="context-item">
+      <div class="context-label">General Strike</div>
+      <div class="segmented two">
+        <button class="${board.generalStrikeActive ? "selected danger" : ""}" onclick="setBoardState('generalStrikeActive', true)">Active</button>
+        <button class="${!board.generalStrikeActive ? "selected" : ""}" onclick="setBoardState('generalStrikeActive', false)">Not active</button>
+      </div>
+    </div>`;
+  }
+  if (key === "unity_sound_strong") {
+    return `<div class="context-item">
+      <div class="context-label">Coalition Unity</div>
+      <select class="select-input" onchange="setBoardState('unity', this.value)">
+        <option value="fragile" ${board.unity === "fragile" ? "selected" : ""}>Fragile</option>
+        <option value="shaky" ${board.unity === "shaky" ? "selected" : ""}>Shaky</option>
+        <option value="sound" ${board.unity === "sound" ? "selected" : ""}>Sound</option>
+        <option value="strong" ${board.unity === "strong" ? "selected" : ""}>Strong</option>
+      </select>
+    </div>`;
+  }
+  if (key === "kpd_stance_in_play") {
+    return `<div class="context-item">
+      <div class="context-label">KPD Stance</div>
+      ${compactStanceSelectHtml("kpdStance")}
+    </div>`;
+  }
+  if (key === "nsdap_stance_in_play") {
+    return `<div class="context-item">
+      <div class="context-label">NSDAP Stance</div>
+      ${compactStanceSelectHtml("nsdapStance")}
+    </div>`;
+  }
+  const derived = derivedContextValue(key);
+  return `<div class="context-item">
+    <div class="context-label">${esc(actionStateQuestions[key] || key)}</div>
+    ${yesNoUnknownControlHtml(key, derived === true, derived === false)}
+  </div>`;
+}
+
+function actionRelevantBoardFactsHtml(action) {
+  const keys = Array.from(new Set(action?.context || []));
+  if (!keys.length) {
+    return `<section class="fact-panel">
+      <div class="field-label">Board facts</div>
+      ${boardSummaryLineHtml()}
+    </section>`;
+  }
+  return `<section class="fact-panel">
+    <div class="field-label">Relevant board facts</div>
+    <div class="context-grid focused-context-grid">
+      ${keys.map(actionFactControlHtml).join("")}
+    </div>
+  </section>`;
 }
 
 function humanActionSelectionPageHtml(slot) {
@@ -4916,6 +5174,11 @@ function render() {
     scheduleAutoSave();
     return;
   }
+  if (state.screen === "turn_order") {
+    renderTurnOrder(app);
+    scheduleAutoSave();
+    return;
+  }
   if (state.screen === "faction_turn") {
     renderFactionTurn(app);
     scheduleAutoSave();
@@ -4980,6 +5243,8 @@ window.continueToScenarioSetup = continueToScenarioSetup;
 window.continueFromScenarioSetup = continueFromScenarioSetup;
 window.takeFactionTurn = takeFactionTurn;
 window.editBoardStateFlow = editBoardStateFlow;
+window.editTurnOrderFlow = editTurnOrderFlow;
+window.saveTurnOrderFlow = saveTurnOrderFlow;
 window.chooseTurnOption = chooseTurnOption;
 window.setFaction = setFaction;
 window.setActiveFaction = setActiveFaction;

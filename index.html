@@ -26,6 +26,8 @@ body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;bac
 .panel{padding:16px;margin-bottom:14px}
 .flow-panel{min-height:calc(100vh - 118px);display:flex;flex-direction:column;gap:14px}
 .flow-panel>.sequence-actions{margin-top:auto}
+.orientation-strip{display:flex;gap:6px;overflow:auto;padding-bottom:2px}
+.orientation-strip span{flex:0 0 auto;border:1px solid var(--line);border-radius:999px;background:#fffaf0;padding:6px 9px;font-size:12px;font-weight:900;color:var(--muted)}
 .card{padding:15px}
 .row,.section-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
 .section-head{margin-bottom:12px}
@@ -131,6 +133,7 @@ textarea{width:100%;min-height:150px;border:1px solid var(--line);border-radius:
 .bot-step.done{background:#f0f7f3;border-color:#c7dfd3}
 .bot-step.done .check-dot{background:var(--green);color:white}
 .info-band{border:1px solid #c9d2e2;border-left:5px solid var(--blue);border-radius:8px;background:#eef1f7;padding:12px;color:var(--ink);line-height:1.4}
+.toast-note{border:1px solid #b6d7c9;border-left:5px solid var(--green);border-radius:8px;background:#f0f7f3;color:#1f584b;padding:10px 12px;margin-top:12px;font-size:13px;font-weight:900;line-height:1.3}
 .sequence-actions{margin-top:16px}
 .action-slots{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .action-slot{display:flex;align-items:center;gap:10px;min-height:54px;border:1px dashed var(--line);border-radius:8px;background:white;color:var(--ink);padding:10px;text-align:left;font:inherit;font-weight:850}
@@ -140,6 +143,10 @@ textarea{width:100%;min-height:150px;border:1px solid var(--line);border-radius:
 .slot-number{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;width:28px;height:28px;border-radius:999px;background:#efe7d7;font-size:13px;font-weight:900}
 .context-grid,.action-card-grid,.board-state-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .board-state-grid .wide{grid-column:1 / -1}
+.focused-context-grid .wide{grid-column:1 / -1}
+.fact-panel{border:1px solid var(--line);border-radius:8px;background:#fffdf8;padding:12px;margin-top:12px}
+.fact-toggle{margin-top:8px}
+.compact-economy-track button{min-height:42px}
 .compact-input{margin-bottom:0}
 .compact-action-list{display:grid;gap:6px}
 .compact-action{display:grid;grid-template-columns:1fr auto;align-items:center;gap:8px;min-height:42px;border:1px solid var(--line);border-radius:8px;background:white;color:var(--ink);padding:8px 10px;text-align:left;font:inherit;font-size:13px;font-weight:900}
@@ -259,6 +266,7 @@ textarea{width:100%;min-height:150px;border:1px solid var(--line);border-radius:
   .sticky-actions{grid-template-columns:repeat(4,minmax(0,1fr));bottom:6px}
   .sticky-actions .btn{font-size:12px;padding:7px 6px;min-height:36px}
   .option-grid,.action-slots,.context-grid,.action-card-grid,.board-state-grid,.controller-grid,.priority-row,.slot-actions,.turn-order-grid,.choice-grid,.space-value-grid{grid-template-columns:1fr}
+  .orientation-strip span{font-size:11px;padding:5px 8px}
   .solo-option-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
   .solo-option-grid .option-card{min-height:92px}
   .mode-tabs{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -291,6 +299,6 @@ textarea{width:100%;min-height:150px;border:1px solid var(--line);border-radius:
   </div></div>
   <main class="wrap" id="app"></main>
 </div>
-<script src="app.js?v=phase-17-step-flow"></script>
+<script src="app.js?v=phase-19-board-order-spaces"></script>
 </body>
 </html>
