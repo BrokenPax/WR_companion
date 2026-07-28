@@ -188,8 +188,15 @@ textarea{width:100%;min-height:150px;border:1px solid var(--line);border-radius:
 .detail-grid{display:grid;gap:12px;margin-top:12px}
 .choice-tracker,.board-effect-panel{border:1px solid var(--line);border-radius:8px;background:white;padding:12px;margin-top:14px}
 .choice-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
-.mode-tabs{grid-template-columns:repeat(6,minmax(0,1fr));margin:10px 0}
+.mode-tabs{grid-template-columns:repeat(7,minmax(0,1fr));margin:10px 0}
 .number-input{width:100%;margin-bottom:0}
+.mcs-quick-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.mcs-quick-row span{border:1px solid var(--line);border-radius:999px;background:white;padding:5px 8px;color:var(--muted);font-size:12px;font-weight:850}
+.mcs-details summary{min-height:36px;font-weight:900;cursor:pointer}
+.mcs-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:8px}
+.mcs-grid label{display:grid;gap:4px;min-width:0;color:var(--muted);font-size:11px;font-weight:850}
+.mcs-grid label span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mcs-subhead{margin-top:12px;color:var(--red);font-size:11px;font-weight:950;text-transform:uppercase}
 .space-snapshot{display:grid;gap:8px;margin-top:10px}
 .space-row{display:grid;gap:7px;border:1px solid var(--line);border-radius:8px;background:#fffaf0;padding:10px;cursor:pointer}
 .space-row>div:first-child{display:flex;justify-content:space-between;gap:8px;color:var(--ink)}
@@ -206,25 +213,44 @@ textarea{width:100%;min-height:150px;border:1px solid var(--line);border-radius:
 .map-token-section{position:relative;border:1px solid rgba(31,41,55,.14);border-radius:8px;background:rgba(255,253,248,.86);padding:9px}
 .map-token-label{font-size:11px;font-weight:950;text-transform:uppercase;color:#6f604a;margin-bottom:7px}
 .map-token-tray{display:flex;flex-wrap:wrap;align-items:center;gap:8px;min-height:46px}
-.visual-token{display:inline-flex;align-items:center;justify-content:center;gap:4px;min-width:42px;min-height:42px;border:2px solid rgba(0,0,0,.16);box-shadow:0 2px 0 rgba(0,0,0,.12);font-size:12px;font-weight:950;line-height:1;color:white;text-align:center}
+.visual-token{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:4px;min-width:42px;min-height:42px;border:2px solid rgba(0,0,0,.16);box-shadow:0 2px 0 rgba(0,0,0,.12);font-size:12px;font-weight:950;line-height:1;color:white;text-align:center}
 .visual-token b{font-weight:950}
 .visual-token small{font-size:10px;font-weight:950}
-.visual-token.cube{border-radius:6px}
+.visual-token.cube{border-radius:6px;box-shadow:inset -3px -3px 0 rgba(0,0,0,.14),inset 3px 3px 0 rgba(255,255,255,.2),0 2px 0 rgba(0,0,0,.12)}
+.visual-token.cube small{position:absolute;right:-7px;bottom:-7px;display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;border:2px solid white;border-radius:999px;background:#1f2937;color:white;font-size:10px}
 .visual-token.unit{min-width:68px;border-radius:999px;padding:0 8px}
 .visual-token.marker{min-width:98px;border-radius:8px;padding:0 8px;color:#1f2937}
-.visual-token.cadre{min-width:72px;border-radius:8px;transform:skew(-7deg)}
+.visual-token.cadre{min-width:72px;border-radius:8px;transform:skew(-7deg);border-style:dashed}
 .visual-token.coalition{background:#d8a540;color:#2b2108}
 .visual-token.kpd{background:#b32626}
 .visual-token.nsdap{background:#7b5438}
 .visual-token.radcon{background:#222}
-.visual-token.yellow-leverage{background:#f7e7ad;color:#5f4200}
-.visual-token.black-leverage{background:#d9d9d9;color:#111827}
+.visual-token.yellow-leverage{background:#f7e7ad;color:#5f4200;border-color:#d8a540;border-radius:999px}
+.visual-token.black-leverage{background:#d9d9d9;color:#111827;border-color:#222;border-radius:999px}
+.unit-counter{position:relative;display:grid;grid-template-rows:12px 1fr auto;place-items:center;width:66px;height:74px;border:2px solid #1f2937;border-radius:6px;box-shadow:0 3px 0 rgba(0,0,0,.24),inset 0 0 0 1px rgba(255,255,255,.18);font-size:10px;font-weight:950;line-height:1;text-align:center;text-transform:uppercase}
+.unit-counter .counter-sv{position:absolute;top:4px;left:5px;display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:3px;background:rgba(255,255,255,.86);color:#111827;font-size:11px}
+.unit-counter .counter-symbol{position:relative;grid-row:2;display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:999px;font-size:15px;letter-spacing:0}
+.unit-counter .counter-label{grid-row:3;padding:0 4px 5px;max-width:100%;font-size:9px;line-height:1.05}
+.unit-counter .counter-count{position:absolute;right:-7px;bottom:-7px;display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;border:2px solid white;border-radius:999px;background:#1f2937;color:white;font-size:10px}
+.unit-counter.coalition_fk{background:#2f3338;color:#f9fafb;border-color:#d8a540;border-width:4px}
+.unit-counter.coalition_fk .counter-symbol,.unit-counter.rogue_fk .counter-symbol{border:2px solid currentColor;border-radius:7px;font-size:13px;overflow:hidden}
+.unit-counter.coalition_fk .counter-symbol:before,.unit-counter.coalition_fk .counter-symbol:after,.unit-counter.rogue_fk .counter-symbol:before,.unit-counter.rogue_fk .counter-symbol:after{content:"";position:absolute;width:40px;height:3px;border-radius:999px;background:currentColor;opacity:.45}
+.unit-counter.coalition_fk .counter-symbol:before,.unit-counter.rogue_fk .counter-symbol:before{transform:rotate(38deg)}
+.unit-counter.coalition_fk .counter-symbol:after,.unit-counter.rogue_fk .counter-symbol:after{transform:rotate(-38deg)}
+.unit-counter.reichswehr{background:#d8a540;color:#1f2937;border-color:#6b5a22}
+.unit-counter.reichswehr .counter-symbol{background:#1f2937;color:#d8a540;clip-path:polygon(38% 0,62% 0,62% 34%,100% 34%,100% 62%,62% 62%,62% 100%,38% 100%,38% 62%,0 62%,0 34%,38% 34%)}
+.unit-counter.kpd_militia{background:#b32626;color:#fff7c2;border-color:#7f1d1d}
+.unit-counter.kpd_militia .counter-symbol{background:#f3c74a;color:#b32626;clip-path:polygon(50% 0,61% 35%,98% 35%,68% 56%,79% 91%,50% 70%,21% 91%,32% 56%,2% 35%,39% 35%)}
+.unit-counter.nsdap_sa{background:#7b5438;color:#fff;border-color:#4b2f22}
+.unit-counter.nsdap_sa .counter-symbol{background:#fff;color:#7b5438;border:2px solid rgba(0,0,0,.18);font-size:12px}
+.unit-counter.rogue_fk{background:#222;color:#f4f4f5;border-color:#222}
 .visual-marker{display:inline-flex;align-items:center;min-height:34px;border:1px solid rgba(31,41,55,.18);border-radius:8px;background:white;padding:7px 9px;font-size:12px;font-weight:900;line-height:1.1}
 .visual-marker.strike,.visual-marker.uprising{background:#f5c7c7;color:#7f1d1d}
+.visual-marker.uprising{border-style:dashed}
 .visual-marker.reform{background:#dceee7;color:#1f584b}
 .visual-marker.yellow-leverage{background:#f7e7ad;color:#5f4200}
 .visual-marker.black-leverage{background:#d9d9d9;color:#111827}
-.visual-marker.assassinations{background:#fff4f4;color:#7f1d1d}
+.visual-marker.assassinations{background:#fff4f4;color:#7f1d1d;border-color:#7f1d1d;border-style:dotted}
 .empty-token{color:var(--muted);font-size:13px;font-weight:850}
 .map-guide-row{display:flex;flex-wrap:wrap;gap:8px}
 .map-guide-row span{border:1px solid var(--line);border-radius:999px;background:white;padding:7px 10px;color:var(--muted);font-size:12px;font-weight:850}
@@ -326,6 +352,9 @@ textarea{width:100%;min-height:150px;border:1px solid var(--line);border-radius:
   .map-space-name{font-size:23px}
   .visual-token{min-width:38px;min-height:38px}
   .visual-token.cadre{min-width:68px}
+  .unit-counter{width:58px;height:66px}
+  .unit-counter .counter-symbol{width:30px;height:30px}
+  .unit-counter .counter-label{font-size:8px}
   .turn-aid-details{margin-top:10px}
   .timeline{grid-template-columns:repeat(3,minmax(0,1fr))}
   .section-head{display:block}
@@ -343,6 +372,6 @@ textarea{width:100%;min-height:150px;border:1px solid var(--line);border-radius:
   </div></div>
   <main class="wrap" id="app"></main>
 </div>
-<script src="app.js?v=phase-30-bot-effect-defaults"></script>
+<script src="app.js?v=phase-32-mcs-pawns"></script>
 </body>
 </html>

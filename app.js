@@ -1,5 +1,5 @@
 const APP_NAME = "The Weimar Republic Companion";
-const APP_BUILD = "phase-30-bot-effect-defaults";
+const APP_BUILD = "phase-32-mcs-pawns";
 const LOCAL_SAVE_KEY = "wr-companion-state-v6";
 const AUTO_SAVE_DELAY_MS = 350;
 
@@ -431,6 +431,7 @@ const effectModes = [
   ["unit", "Units"],
   ["control", "Control"],
   ["marker", "Markers"],
+  ["mcs", "MCS"],
   ["track", "Tracks"],
   ["note", "Note"]
 ];
@@ -528,6 +529,63 @@ const economyOptions = [
 
 function economyLabel(value) {
   return economyOptions.find(([id]) => id === value)?.[1] || value;
+}
+
+const mcsTrackTypes = ["progress", "reaction", "economy"];
+const mcsNumericBoxes = Array.from({ length: 6 }, (_, index) => String(index + 1));
+
+function blankMiddleClassPawns() {
+  return {
+    available: 0,
+    mats: Object.fromEntries(factionIds.map(id => [id, 0])),
+    tracks: {
+      progress: Object.fromEntries(mcsNumericBoxes.map(box => [box, 0])),
+      reaction: Object.fromEntries(mcsNumericBoxes.map(box => [box, 0])),
+      economy: Object.fromEntries(economyOptions.map(([id]) => [id, 0]))
+    }
+  };
+}
+
+function normalizeMiddleClassPawns(existing = {}) {
+  const source = existing && typeof existing === "object" && !Array.isArray(existing) ? existing : {};
+  const mats = source.mats && typeof source.mats === "object" ? source.mats : {};
+  const tracks = source.tracks && typeof source.tracks === "object" ? source.tracks : {};
+  return {
+    available: clampInt(source.available, 0, 20),
+    mats: Object.fromEntries(factionIds.map(id => [id, clampInt(mats[id], 0, 20)])),
+    tracks: {
+      progress: Object.fromEntries(mcsNumericBoxes.map(box => [box, clampInt(tracks.progress?.[box], 0, 20)])),
+      reaction: Object.fromEntries(mcsNumericBoxes.map(box => [box, clampInt(tracks.reaction?.[box], 0, 20)])),
+      economy: Object.fromEntries(economyOptions.map(([id]) => [id, clampInt(tracks.economy?.[id], 0, 20)]))
+    }
+  };
+}
+
+function mcsLocationOptions() {
+  return [
+    ["available", "Available pool"],
+    ...factionIds.map(id => [`mat:${id}`, `${factions[id].short} playmat`]),
+    ...mcsNumericBoxes.map(box => [`progress:${box}`, `Progress box ${box}`]),
+    ...mcsNumericBoxes.map(box => [`reaction:${box}`, `Reaction box ${box}`]),
+    ...economyOptions.map(([id, label]) => [`economy:${id}`, `Economy ${label}`])
+  ];
+}
+
+function mcsLocationLabel(location) {
+  return mcsLocationOptions().find(([id]) => id === location)?.[1] || location;
+}
+
+function defaultMcsDestinationForFaction(factionId = state.activeFaction) {
+  return factions[factionId] ? `mat:${factionId}` : "available";
+}
+
+function totalMiddleClassPawns(pawns = state.boardState.middleClassPawns) {
+  const normalized = normalizeMiddleClassPawns(pawns);
+  const matTotal = Object.values(normalized.mats).reduce((sum, value) => sum + value, 0);
+  const trackTotal = mcsTrackTypes.reduce((sum, track) => {
+    return sum + Object.values(normalized.tracks[track] || {}).reduce((inner, value) => inner + value, 0);
+  }, 0);
+  return normalized.available + matTotal + trackTotal;
 }
 
 const stanceOptions = [
@@ -1360,6 +1418,7 @@ const state = {
     kpdStance: "left_revolutionary",
     nsdapStance: "revolutionary",
     reactionLimitIgnored: false,
+    middleClassPawns: blankMiddleClassPawns(),
     selectedSpace: "berlin",
     spaces: {},
     scenarioSetup: "",
@@ -1619,6 +1678,7 @@ function normalizeState() {
     kpdStance: state.boardState.kpdStance || "left_revolutionary",
     nsdapStance: state.boardState.nsdapStance || "revolutionary",
     reactionLimitIgnored: !!state.boardState.reactionLimitIgnored,
+    middleClassPawns: normalizeMiddleClassPawns(existingBoard.middleClassPawns),
     selectedSpace: normalizeSpaceId(state.boardState.selectedSpace),
     spaces: normalizeBoardSpaces(existingBoard.spaces, state.scenarioId),
     scenarioSetup: state.boardState.scenarioSetup || "",
@@ -2118,7 +2178,7 @@ function defaultEffectForAction(actionId) {
   if (actionId === "increase_ussr_deals") return { mode: "track", track: "ussrDeals", operation: "add", amount: 1 };
   if (actionId === "increase_unity") return { mode: "track", track: "unity", operation: "add", amount: 1 };
   if (actionId === "change_stance") return { mode: "track", track: state.activeFaction === "nsdap" ? "nsdapStance" : "kpdStance", operation: "set", trackValue: state.boardState[state.activeFaction === "nsdap" ? "nsdapStance" : "kpdStance"] };
-  if (actionId === "move_mcs") return { mode: "note", notes: "Move Middle Class Sympathies per bot priority." };
+  if (actionId === "move_mcs") return { mode: "mcs", mcsSource: "available", mcsDestination: defaultMcsDestinationForFaction(), amount: 1 };
   if (actionId === "assault") return { mode: "note", notes: "Resolve Assault, then record casualties/control changes as separate board effects." };
   if (actionId === "special") return { mode: "note", notes: "Resolve the selected bot Special Action, then apply the concrete board change." };
   return {};
@@ -2172,6 +2232,8 @@ function currentEffectDraft() {
     markerValue: "",
     track: "progress",
     trackValue: "",
+    mcsSource: "available",
+    mcsDestination: defaultMcsDestinationForFaction(),
     notes: "",
     ...defaultEffectForAction(currentResolutionActionId()),
     ...(state.effectDrafts[context.key] || {})
@@ -2179,7 +2241,7 @@ function currentEffectDraft() {
 }
 
 function updateEffectDraft(field, value) {
-  const allowed = ["mode", "space", "faction", "operation", "amount", "control", "marker", "markerOperation", "markerValue", "track", "trackValue", "notes"];
+  const allowed = ["mode", "space", "faction", "operation", "amount", "control", "marker", "markerOperation", "markerValue", "track", "trackValue", "mcsSource", "mcsDestination", "notes"];
   if (!allowed.includes(field)) return;
   const context = currentChoiceContext();
   const draft = currentEffectDraft();
@@ -2229,6 +2291,47 @@ function assignBoardTrack(track, value, operation = "set", amount = 1) {
   return `${boardTrackOptions.find(([id]) => id === track)?.[1] || track} -> ${next}`;
 }
 
+function getMiddleClassLocationCount(location, pawns = state.boardState.middleClassPawns) {
+  const normalized = normalizeMiddleClassPawns(pawns);
+  if (location === "available") return normalized.available;
+  const [type, id] = String(location || "").split(":");
+  if (type === "mat" && factions[id]) return normalized.mats[id];
+  if (mcsTrackTypes.includes(type) && Object.prototype.hasOwnProperty.call(normalized.tracks[type], id)) return normalized.tracks[type][id];
+  return 0;
+}
+
+function writeMiddleClassLocationCount(pawns, location, value) {
+  const next = normalizeMiddleClassPawns(pawns);
+  const count = clampInt(value, 0, 20);
+  if (location === "available") {
+    next.available = count;
+    return next;
+  }
+  const [type, id] = String(location || "").split(":");
+  if (type === "mat" && factions[id]) next.mats[id] = count;
+  if (mcsTrackTypes.includes(type) && Object.prototype.hasOwnProperty.call(next.tracks[type], id)) next.tracks[type][id] = count;
+  return next;
+}
+
+function moveMiddleClassPawns(source, destination, amount = 1) {
+  const parsed = clampInt(amount, 0, 20);
+  if (!parsed) return "";
+  if (!mcsLocationOptions().some(([id]) => id === source) || !mcsLocationOptions().some(([id]) => id === destination)) return "";
+  if (source === destination) return `MCS already at ${mcsLocationLabel(destination)}`;
+  const available = getMiddleClassLocationCount(source);
+  const moved = Math.min(parsed, available);
+  if (!moved) return `No MCS pawn at ${mcsLocationLabel(source)}`;
+  let pawns = writeMiddleClassLocationCount(state.boardState.middleClassPawns, source, available - moved);
+  pawns = writeMiddleClassLocationCount(pawns, destination, getMiddleClassLocationCount(destination, pawns) + moved);
+  state.boardState.middleClassPawns = pawns;
+  return `MCS ${moved} moved from ${mcsLocationLabel(source)} to ${mcsLocationLabel(destination)}`;
+}
+
+function setMiddleClassLocation(location, value) {
+  state.boardState.middleClassPawns = writeMiddleClassLocationCount(state.boardState.middleClassPawns, location, value);
+  render();
+}
+
 function applyBoardEffect() {
   const context = currentChoiceContext();
   const draft = currentEffectDraft();
@@ -2272,6 +2375,12 @@ function applyBoardEffect() {
     summary = `${spaceLabel(spaceId)} ${markerOptions.find(([id]) => id === marker)?.[1] || marker} updated`;
   } else if (draft.mode === "track") {
     summary = assignBoardTrack(draft.track, draft.trackValue, draft.operation, draft.amount);
+    if (currentResolutionActionId() === "increase_unity" && draft.track === "unity" && draft.operation === "add") {
+      const spendSummary = moveMiddleClassPawns("mat:coalition", "available", 1);
+      if (spendSummary) summary = [summary, spendSummary].filter(Boolean).join("; ");
+    }
+  } else if (draft.mode === "mcs") {
+    summary = moveMiddleClassPawns(draft.mcsSource, draft.mcsDestination, draft.amount);
   } else if (draft.mode === "note") {
     const text = String(draft.notes || "").trim();
     if (text) space.notes = [space.notes, text].filter(Boolean).join(" | ");
@@ -2445,6 +2554,7 @@ function applyScenario(scenarioId) {
     kpdStance: scenario.start.kpdStance,
     nsdapStance: scenario.start.nsdapStance,
     reactionLimitIgnored: scenario.start.reactionLimitIgnored,
+    middleClassPawns: blankMiddleClassPawns(),
     selectedSpace: scenario.id === "black_sun_1928" ? "koeln" : "berlin",
     spaces: defaultSpacesForScenario(scenario.id),
     scenarioSetup: scenarioSetupText(scenario),
@@ -2991,6 +3101,7 @@ function resetApp() {
     kpdStance: "left_revolutionary",
     nsdapStance: "revolutionary",
     reactionLimitIgnored: false,
+    middleClassPawns: blankMiddleClassPawns(),
     selectedSpace: "berlin",
     spaces: defaultSpacesForScenario(),
     scenarioSetup: "",
@@ -3410,6 +3521,27 @@ function effectFieldsHtml(draft) {
     </div>`;
   }
 
+  if (draft.mode === "mcs") {
+    return `<div class="choice-grid">
+      <div>
+        <div class="context-label">From</div>
+        <select class="select-input" onchange="updateEffectDraft('mcsSource', this.value)">${selectOptionsHtml(mcsLocationOptions(), draft.mcsSource)}</select>
+      </div>
+      <div>
+        <div class="context-label">To</div>
+        <select class="select-input" onchange="updateEffectDraft('mcsDestination', this.value)">${selectOptionsHtml(mcsLocationOptions(), draft.mcsDestination)}</select>
+      </div>
+      <div>
+        <div class="context-label">Pawns</div>
+        ${numberInputHtml(draft.amount, "updateEffectDraft('amount', this.value)", 0, 20)}
+      </div>
+      <div>
+        <div class="context-label">Current source</div>
+        <div class="small-note">${getMiddleClassLocationCount(draft.mcsSource)} at ${esc(mcsLocationLabel(draft.mcsSource))}</div>
+      </div>
+    </div>`;
+  }
+
   if (draft.mode === "track") {
     return `<div class="choice-grid">
       <div>
@@ -3634,6 +3766,7 @@ function derivedContextValue(key) {
   if (key === "reaction_can_advance") return board.reactionLimitIgnored || board.reaction <= board.progress;
   if (key === "kpd_stance_in_play") return board.kpdStance !== "not_in_play";
   if (key === "nsdap_stance_in_play") return board.nsdapStance !== "not_in_play";
+  if (key === "coalition_mcs_available") return getMiddleClassLocationCount("mat:coalition") > 0 || state.actionContext[key];
   if (key === "strike_available") return spaces.some(space => space.markers?.strike);
   if (key === "kpd_cadre_available") return spaces.some(space => Number(space.markers?.kpdCadre) > 0) || state.actionContext[key];
   if (key === "nsdap_cadre_available") return spaces.some(space => Number(space.markers?.nsdapCadre) > 0) || state.actionContext[key];
@@ -3977,6 +4110,31 @@ function visualTokenHtml(label, count, klass, title = "") {
   </span>`;
 }
 
+function unitCounterHtml(pieceId, label, count, klass, title = "") {
+  const parsed = clampInt(count, 0, 99);
+  if (!parsed) return "";
+  const symbolMap = {
+    coalition_fk: "FK",
+    reichswehr: "+",
+    kpd_militia: "*",
+    nsdap_sa: "SA",
+    rogue_fk: "FK"
+  };
+  const svMap = {
+    coalition_fk: 2,
+    reichswehr: 3,
+    kpd_militia: 1,
+    nsdap_sa: 1,
+    rogue_fk: 2
+  };
+  return `<span class="unit-counter ${klass} ${pieceId}" title="${esc(title || label)}">
+    <span class="counter-sv">${svMap[pieceId] || ""}</span>
+    <span class="counter-symbol">${esc(symbolMap[pieceId] || label)}</span>
+    <span class="counter-label">${esc(label)}</span>
+    ${parsed > 1 ? `<span class="counter-count">x${parsed}</span>` : ""}
+  </span>`;
+}
+
 function booleanMarkerTokenHtml(active, label, klass) {
   return active ? `<span class="visual-marker ${klass}">${esc(label)}</span>` : "";
 }
@@ -3992,11 +4150,17 @@ function spaceHasUnits(space) {
 
 function spaceUnitTokensHtml(space) {
   const specialTokens = Object.entries(specialUnitPieces)
-    .map(([id, unit]) => visualTokenHtml(unit.label, space.specialUnits?.[id], `unit ${factions[unit.faction].tone}`, unit.full))
+    .map(([id, unit]) => unitCounterHtml(id, unit.label, space.specialUnits?.[id], factions[unit.faction].tone, unit.full))
     .join("");
+  const pieceIds = {
+    coalition: "coalition_fk",
+    kpd: "kpd_militia",
+    nsdap: "nsdap_sa",
+    radical_conservatives: "rogue_fk"
+  };
   const tokens = [
     specialTokens,
-    ...factionIds.map(id => visualTokenHtml(unitPieces[id].label, space.units[id], `unit ${factions[id].tone}`, unitPieces[id].full))
+    ...factionIds.map(id => unitCounterHtml(pieceIds[id], unitPieces[id].label, space.units[id], factions[id].tone, unitPieces[id].full))
   ].join("");
   return tokens || `<span class="empty-token">No units</span>`;
 }
@@ -4242,6 +4406,35 @@ function spaceEditorHtml() {
   </details>`;
 }
 
+function middleClassPawnsHtml() {
+  const pawns = normalizeMiddleClassPawns(state.boardState.middleClassPawns);
+  const matTotal = Object.values(pawns.mats).reduce((sum, value) => sum + value, 0);
+  const trackTotal = mcsTrackTypes.reduce((sum, track) => sum + Object.values(pawns.tracks[track]).reduce((inner, value) => inner + value, 0), 0);
+  const input = (location, value, label) => `<label><span>${esc(label)}</span>${numberInputHtml(value, `setMiddleClassLocation('${location}', this.value)`, 0, 20)}</label>`;
+  return `<div class="context-item wide mcs-editor">
+    <div class="context-label">Middle Class pawns</div>
+    <div class="mcs-quick-row">
+      <span>Total ${totalMiddleClassPawns(pawns)}</span>
+      <span>Available ${pawns.available}</span>
+      <span>Playmats ${matTotal}</span>
+      <span>Tracks ${trackTotal}</span>
+    </div>
+    <details class="mcs-details">
+      <summary>Edit pawn locations</summary>
+      <div class="mcs-grid">
+        ${input("available", pawns.available, "Available")}
+        ${factionIds.map(id => input(`mat:${id}`, pawns.mats[id], `${factions[id].short} mat`)).join("")}
+      </div>
+      <div class="mcs-subhead">Progress track</div>
+      <div class="mcs-grid">${mcsNumericBoxes.map(box => input(`progress:${box}`, pawns.tracks.progress[box], box)).join("")}</div>
+      <div class="mcs-subhead">Reaction track</div>
+      <div class="mcs-grid">${mcsNumericBoxes.map(box => input(`reaction:${box}`, pawns.tracks.reaction[box], box)).join("")}</div>
+      <div class="mcs-subhead">Economy track</div>
+      <div class="mcs-grid">${economyOptions.map(([id, label]) => input(`economy:${id}`, pawns.tracks.economy[id], label)).join("")}</div>
+    </details>
+  </div>`;
+}
+
 function boardStateControlsHtml() {
   const board = state.boardState;
   const progressOptions = Array.from({ length: 7 }, (_, value) => `<option value="${value}" ${board.progress === value ? "selected" : ""}>${value}</option>`).join("");
@@ -4323,6 +4516,7 @@ function boardStateControlsHtml() {
         <option value="none" ${board.blackReactionLeverage === "none" ? "selected" : ""}>No</option>
       </select>
     </div>
+    ${middleClassPawnsHtml()}
     <div class="context-item wide">
       <div class="context-label">Board notes</div>
       <input class="text-input compact-input" value="${esc(board.notes)}" oninput="setBoardState('notes', this.value)" placeholder="Optional notes: available units, key map spaces, odd lingering effects">
@@ -4348,7 +4542,7 @@ function boardStateCompactHtml() {
     </div>
     ${boardStateControlsHtml()}
     ${boardValiditySummaryHtml()}
-    <div class="small-note">Current: Progress ${board.progress}, Reaction ${board.reaction}, Economy ${esc(economyLabel(board.economy))}, Unity ${esc(board.unity)}, U.S. Deals ${board.usDeals}, U.S.S.R. Deals ${board.ussrDeals}, General Strike ${board.generalStrikeActive ? "active" : "not active"}.</div>
+    <div class="small-note">Current: Progress ${board.progress}, Reaction ${board.reaction}, Economy ${esc(economyLabel(board.economy))}, Unity ${esc(board.unity)}, MCS ${totalMiddleClassPawns(board.middleClassPawns)}, U.S. Deals ${board.usDeals}, U.S.S.R. Deals ${board.ussrDeals}, General Strike ${board.generalStrikeActive ? "active" : "not active"}.</div>
     <div class="sequence-actions">
       ${btn("Save board state", "saveBoardStatePage()", "primary")}
     </div>
@@ -5239,6 +5433,7 @@ function boardSummaryLineHtml() {
     <span>Unity ${esc(board.unity)}</span>
     <span>U.S. ${board.usDeals}</span>
     <span>U.S.S.R. ${board.ussrDeals}</span>
+    <span>MCS ${totalMiddleClassPawns(board.middleClassPawns)}</span>
     <span>KPD ${esc(stanceLabel(board.kpdStance))}</span>
     <span>NSDAP ${esc(stanceLabel(board.nsdapStance))}</span>
     <span>${board.generalStrikeActive ? "Strike active" : "No strike"}</span>
@@ -6063,6 +6258,7 @@ window.setSpaceSpecialUnit = setSpaceSpecialUnit;
 window.setSpaceMarker = setSpaceMarker;
 window.setSpaceNotes = setSpaceNotes;
 window.setSpaceGuideTokens = setSpaceGuideTokens;
+window.setMiddleClassLocation = setMiddleClassLocation;
 window.toggleSequenceCheck = toggleSequenceCheck;
 window.continueSequence = continueSequence;
 window.jumpToSequencePhase = jumpToSequencePhase;
