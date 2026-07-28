@@ -1,8 +1,8 @@
-const CACHE = "wr-companion-app-v42";
+const CACHE = "wr-companion-app-v43";
 const ASSETS = [
   "./",
   "./index.html",
-  "./app.js?v=phase-35-counter-sv-legibility",
+  "./app.js?v=phase-36-counter-sv-layer",
   "./manifest.json",
   "./icon-192.png",
   "./icon-512.png"
