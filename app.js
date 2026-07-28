@@ -1,5 +1,5 @@
 const APP_NAME = "The Weimar Republic Companion";
-const APP_BUILD = "phase-28-sv-supremacy";
+const APP_BUILD = "phase-29-scenario-audit";
 const LOCAL_SAVE_KEY = "wr-companion-state-v6";
 const AUTO_SAVE_DELAY_MS = 350;
 
@@ -1597,7 +1597,7 @@ function normalizeState() {
   if (typeof state.selectedActionId !== "string") state.selectedActionId = "";
   if (!state.actionContext || typeof state.actionContext !== "object") state.actionContext = {};
   state.soloSetupComplete = !!state.soloSetupComplete;
-  const knownScreens = ["solo_setup", "scenario_setup", "sequence", "turn_order", "faction_turn", "action_resolve", "board_state", "map_space", "factions", "rules", "notes", "save_load", "result"];
+  const knownScreens = ["solo_setup", "scenario_setup", "sequence", "turn_order", "faction_turn", "action_resolve", "board_state", "scenario_audit", "map_space", "factions", "rules", "notes", "save_load", "result"];
   if (!knownScreens.includes(state.screen) || state.screen === "dashboard") {
     state.screen = state.soloSetupComplete ? (state.scenarioId ? "sequence" : "scenario_setup") : "solo_setup";
   }
@@ -3737,6 +3737,192 @@ function boardValiditySummaryHtml() {
   </div>`;
 }
 
+function displayAuditValue(value) {
+  if (typeof value === "boolean") return value ? "on" : "off";
+  if (value === "" || value === undefined || value === null) return "none";
+  return String(value);
+}
+
+function markerAuditLabel(marker) {
+  return markerOptions.find(([id]) => id === marker)?.[1] || marker;
+}
+
+function scenarioTrackAuditItems(scenario) {
+  if (!scenario) return [];
+  const board = state.boardState;
+  const fields = [
+    ["year", "Year", state.year, scenario.start.year],
+    ["round", "Half-year", state.round, scenario.start.round],
+    ["momentumFaction", "Momentum", state.momentumFaction, scenario.start.momentumFaction],
+    ["progress", "Progress", board.progress, scenario.start.progress],
+    ["reaction", "Reaction", board.reaction, scenario.start.reaction],
+    ["economy", "Economy", board.economy, scenario.start.economy],
+    ["unity", "Coalition Unity", board.unity, scenario.start.unity],
+    ["usDeals", "U.S. Deals", board.usDeals, scenario.start.usDeals],
+    ["ussrDeals", "U.S.S.R. Deals", board.ussrDeals, scenario.start.ussrDeals],
+    ["kpdStance", "KPD Stance", board.kpdStance, scenario.start.kpdStance],
+    ["nsdapStance", "NSDAP Stance", board.nsdapStance, scenario.start.nsdapStance],
+    ["reactionLimitIgnored", "Reaction cap", board.reactionLimitIgnored, scenario.start.reactionLimitIgnored]
+  ];
+  return fields
+    .filter(([, , current, expected]) => current !== expected)
+    .map(([, label, current, expected]) => `${label}: current ${displayAuditValue(current)}, setup ${displayAuditValue(expected)}`);
+}
+
+function spaceScenarioDiffs(spaceId, baselineSpaces) {
+  const current = normalizeSpaceState(spaceId, state.boardState.spaces?.[spaceId] || {});
+  const baseline = normalizeSpaceState(spaceId, baselineSpaces[spaceId] || {});
+  const diffs = [];
+  [["population", "Population"], ["politicalValue", "Political Value"], ["control", "Control"], ["supremacy", "Manual Supremacy"]].forEach(([field, label]) => {
+    if (current[field] !== baseline[field]) diffs.push(`${label}: current ${displayAuditValue(current[field])}, setup ${displayAuditValue(baseline[field])}`);
+  });
+  factionIds.forEach(id => {
+    if (current.influence[id] !== baseline.influence[id]) diffs.push(`${factions[id].short} Influence: current ${current.influence[id]}, setup ${baseline.influence[id]}`);
+    if (current.units[id] !== baseline.units[id]) diffs.push(`${unitPieces[id].label}: current ${current.units[id]}, setup ${baseline.units[id]}`);
+  });
+  Object.entries(specialUnitPieces).forEach(([id, unit]) => {
+    const currentCount = Number(current.specialUnits?.[id] || 0);
+    const baselineCount = Number(baseline.specialUnits?.[id] || 0);
+    if (currentCount !== baselineCount) diffs.push(`${unit.label}: current ${currentCount}, setup ${baselineCount}`);
+  });
+  Object.keys(current.markers).forEach(marker => {
+    if (current.markers[marker] !== baseline.markers[marker]) diffs.push(`${markerAuditLabel(marker)}: current ${displayAuditValue(current.markers[marker])}, setup ${displayAuditValue(baseline.markers[marker])}`);
+  });
+  const currentGuideTokens = (current.guideTokens || []).join(" | ");
+  const baselineGuideTokens = (baseline.guideTokens || []).join(" | ");
+  if (currentGuideTokens !== baselineGuideTokens) diffs.push(`Guide tokens: current ${displayAuditValue(currentGuideTokens)}, setup ${displayAuditValue(baselineGuideTokens)}`);
+  return diffs;
+}
+
+function scenarioSpaceDriftItems(scenarioId) {
+  if (!scenarioId) return [];
+  const baselineSpaces = defaultSpacesForScenario(scenarioId);
+  return mapSpaces
+    .map(space => ({ space, diffs: spaceScenarioDiffs(space.id, baselineSpaces) }))
+    .filter(item => item.diffs.length > 0);
+}
+
+function supremacyAuditItems() {
+  return Object.values(state.boardState.spaces || {}).map(space => {
+    const calc = calculatedSupremacy(space);
+    const manual = space.supremacy || "";
+    let issue = "";
+    if (manual && calc.faction && manual !== calc.faction) issue = `Manual ${factions[manual]?.short || manual}; calculated ${factions[calc.faction].short} by SV ${calc.max}.`;
+    else if (manual && calc.tied) issue = `Manual ${factions[manual]?.short || manual}; calculated tie at SV ${calc.max} (${calc.leaders.map(id => factions[id].short).join(", ")}).`;
+    else if (!manual && calc.faction) issue = `No manual Supremacy; calculated ${factions[calc.faction].short} by SV ${calc.max}.`;
+    return issue ? { space, issue } : null;
+  }).filter(Boolean);
+}
+
+const guideStrengthRules = [
+  { re: /Coalition FK strength\s+(\d+)/i, label: "Coalition FK", expected: 2 },
+  { re: /Rogue FK strength\s+(\d+)/i, label: "Rogue FK", expected: 2 },
+  { re: /KPD Militia strength\s+(\d+)/i, label: "KPD Militia", expected: 1 },
+  { re: /NSDAP SA strength\s+(\d+)/i, label: "NSDAP SA", expected: 1 },
+  { re: /Reichswehr strength\s+(\d+)/i, label: "Reichswehr", expected: 3 }
+];
+
+function guideTokenAuditItems() {
+  return Object.values(state.boardState.spaces || {}).flatMap(space => (space.guideTokens || []).map(token => {
+    const rule = guideStrengthRules.find(item => item.re.test(token));
+    const match = rule ? token.match(rule.re) : null;
+    const found = match ? Number(match[1]) : null;
+    return {
+      space,
+      token,
+      issue: rule && found !== rule.expected ? `${rule.label} printed SV is modeled as ${rule.expected}, guide note says ${found}.` : ""
+    };
+  }));
+}
+
+function boardValidityAuditItems() {
+  return Object.values(state.boardState.spaces || {})
+    .map(space => ({ space, validity: spaceValidity(space) }))
+    .filter(item => !item.validity.ok);
+}
+
+function auditRowHtml(title, body, action = "") {
+  return `<article class="choice-entry">
+    <div class="row">
+      <div>
+        <div class="choice-title">${esc(title)}</div>
+        <div class="muted">${esc(body)}</div>
+      </div>
+      ${action}
+    </div>
+  </article>`;
+}
+
+function auditListHtml(items, emptyText, renderItem, limit = 12) {
+  if (!items.length) return `<div class="toast-note">${esc(emptyText)}</div>`;
+  return `<div class="choice-log">
+    ${items.slice(0, limit).map(renderItem).join("")}
+    ${items.length > limit ? `<div class="small-note">${items.length - limit} more items not shown.</div>` : ""}
+  </div>`;
+}
+
+function scenarioAuditHtml() {
+  const scenario = currentScenario();
+  const validityItems = boardValidityAuditItems();
+  const supremacyItems = supremacyAuditItems();
+  const guideItems = guideTokenAuditItems();
+  const guideConflicts = guideItems.filter(item => item.issue);
+  const driftItems = scenario ? scenarioSpaceDriftItems(scenario.id) : [];
+  const trackItems = scenario ? scenarioTrackAuditItems(scenario) : [];
+  return `<div class="runner-page">
+    <div class="section-head">
+      <div>
+        <div class="kicker">Scenario Audit</div>
+        <h2>${scenario ? esc(scenario.title) : "No scenario selected"}</h2>
+        <p class="muted">Check setup drift, Population/PV validity, Supremacy from unit SV, and guide notes still needing conversion.</p>
+      </div>
+      ${badge(`${validityItems.length + supremacyItems.length + guideConflicts.length + driftItems.length + trackItems.length} flags`, validityItems.length || supremacyItems.length || guideConflicts.length ? "warn" : "good")}
+    </div>
+    <div class="board-state-grid">
+      <div class="context-item">
+        <div class="context-label">Validity</div>
+        <h3>${validityItems.length}</h3>
+        <p class="small-note">Population, Political Value, and Influence cap flags.</p>
+      </div>
+      <div class="context-item">
+        <div class="context-label">Supremacy / SV</div>
+        <h3>${supremacyItems.length}</h3>
+        <p class="small-note">Manual Supremacy missing or different from calculated unit SV.</p>
+      </div>
+      <div class="context-item">
+        <div class="context-label">Guide tokens</div>
+        <h3>${guideItems.length}</h3>
+        <p class="small-note">${guideConflicts.length} printed-SV conflicts found.</p>
+      </div>
+      <div class="context-item">
+        <div class="context-label">Setup drift</div>
+        <h3>${driftItems.length + trackItems.length}</h3>
+        <p class="small-note">Current board compared with selected scenario seed.</p>
+      </div>
+    </div>
+    <div class="walk-block">
+      <div class="field-label">Board-state validity</div>
+      ${auditListHtml(validityItems, "No Population/PV/influence-cap issues.", item => auditRowHtml(spaceLabel(item.space.id), item.validity.issues.join(" "), `<button class="mini-btn" onclick="openSpaceMapView('${item.space.id}')">Open</button>`))}
+    </div>
+    <div class="walk-block">
+      <div class="field-label">Supremacy from unit SV</div>
+      ${auditListHtml(supremacyItems, "Manual Supremacy matches calculated unit SV, or no unit-SV leader exists.", item => auditRowHtml(spaceLabel(item.space.id), item.issue, `<button class="mini-btn" onclick="openSpaceMapView('${item.space.id}')">Open</button>`))}
+    </div>
+    <div class="walk-block">
+      <div class="field-label">Guide-token conversion</div>
+      ${auditListHtml(guideItems, "No guide-token placeholders remain on the current board state.", item => auditRowHtml(spaceLabel(item.space.id), item.issue || `Guide note: ${item.token}`, `<button class="mini-btn" onclick="openSpaceMapView('${item.space.id}')">Open</button>`), 16)}
+    </div>
+    <div class="walk-block">
+      <div class="field-label">Scenario track drift</div>
+      ${auditListHtml(trackItems, "Tracks match the selected scenario start.", item => auditRowHtml("Track", item))}
+    </div>
+    <div class="walk-block">
+      <div class="field-label">Scenario map drift</div>
+      ${auditListHtml(driftItems, "Current map-space state matches the selected scenario seed.", item => auditRowHtml(spaceLabel(item.space.id), item.diffs.slice(0, 5).join(" | "), `<button class="mini-btn" onclick="openSpaceMapView('${item.space.id}')">Open</button>`), 16)}
+    </div>
+  </div>`;
+}
+
 function visualTokenHtml(label, count, klass, title = "") {
   const parsed = clampInt(count, 0, 99);
   if (!parsed) return "";
@@ -4113,6 +4299,7 @@ function boardStateCompactHtml() {
         <h2>Update remembered board state</h2>
         <p class="muted">Stored in this browser save and reused for action checks. Track-only changes can be updated automatically by some human Actions.</p>
       </div>
+      <button class="mini-btn" onclick="setScreen('scenario_audit')">Audit scenario</button>
     </div>
     ${boardStateControlsHtml()}
     ${boardValiditySummaryHtml()}
@@ -4290,6 +4477,7 @@ function flowStickyHtml(active = "") {
     ${item("Setup", "setScreen('solo_setup')", "setup")}
     ${item("Scenario", "setScreen('scenario_setup')", "scenario")}
     ${item("Board", "editBoardStateFlow()", "board")}
+    ${item("Audit", "setScreen('scenario_audit')", "audit")}
     ${btn("Save", "setScreen('save_load')", active === "save" ? "primary" : "secondary")}
   </div>`;
 }
@@ -4546,6 +4734,16 @@ function renderBoardState(app) {
       ${boardStateCompactHtml()}
     </section>
     ${flowStickyHtml("board")}
+  `;
+}
+
+function renderScenarioAudit(app) {
+  app.innerHTML = `
+    <section class="panel flow-panel">
+      ${orientationStripHtml()}
+      ${scenarioAuditHtml()}
+    </section>
+    ${flowStickyHtml("audit")}
   `;
 }
 
@@ -5720,6 +5918,11 @@ function render() {
   }
   if (state.screen === "board_state") {
     renderBoardState(app);
+    scheduleAutoSave();
+    return;
+  }
+  if (state.screen === "scenario_audit") {
+    renderScenarioAudit(app);
     scheduleAutoSave();
     return;
   }
