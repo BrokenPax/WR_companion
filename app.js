@@ -1,5 +1,5 @@
 const APP_NAME = "The Weimar Republic Companion";
-const APP_BUILD = "phase-29-scenario-audit";
+const APP_BUILD = "phase-30-bot-effect-defaults";
 const LOCAL_SAVE_KEY = "wr-companion-state-v6";
 const AUTO_SAVE_DELAY_MS = 350;
 
@@ -2093,7 +2093,7 @@ function deleteChoiceLogEntry(entryId) {
 function currentResolutionActionId() {
   if (state.actionSubpage === "action1") return state.actionPlan[0] || state.selectedActionId || defaultActionId();
   if (state.actionSubpage === "action2") return state.actionPlan[1] || state.selectedActionId || defaultActionId();
-  if (state.actionSubpage === "bot_action1" || state.actionSubpage === "bot_action2") return currentBotAction();
+  if (state.actionSubpage === "bot_action1" || state.actionSubpage === "bot_action2") return currentBotBoardEffectActionId();
   return "";
 }
 
@@ -2110,12 +2110,51 @@ function defaultEffectForAction(actionId) {
   if (actionId === "place_reform") return { mode: "marker", marker: "reform", markerOperation: "set", amount: 1 };
   if (actionId === "place_assassinations") return { mode: "marker", marker: "assassinations", markerOperation: "set", markerValue: "yellow_red", amount: 1 };
   if (actionId === "place_leverage_map") return { mode: "marker", marker: state.activeFaction === "radical_conservatives" ? "blackLeverage" : "yellowLeverage", markerOperation: "set", amount: 1 };
+  if (actionId === "place_leverage_track") return { mode: "track", track: state.activeFaction === "radical_conservatives" ? "blackReactionLeverage" : "yellowProgressLeverage", trackValue: "above", operation: "set", amount: 1 };
   if (actionId === "remove_leverage") return { mode: "marker", marker: "yellowLeverage", markerOperation: "clear", amount: 1 };
   if (actionId === "advance_progress") return { mode: "track", track: "progress", operation: "add", amount: 1 };
   if (actionId === "advance_reaction") return { mode: "track", track: "reaction", operation: "add", amount: 1 };
   if (actionId === "increase_deals") return { mode: "track", track: "usDeals", operation: "add", amount: 1 };
+  if (actionId === "increase_ussr_deals") return { mode: "track", track: "ussrDeals", operation: "add", amount: 1 };
   if (actionId === "increase_unity") return { mode: "track", track: "unity", operation: "add", amount: 1 };
+  if (actionId === "change_stance") return { mode: "track", track: state.activeFaction === "nsdap" ? "nsdapStance" : "kpdStance", operation: "set", trackValue: state.boardState[state.activeFaction === "nsdap" ? "nsdapStance" : "kpdStance"] };
+  if (actionId === "move_mcs") return { mode: "note", notes: "Move Middle Class Sympathies per bot priority." };
+  if (actionId === "assault") return { mode: "note", notes: "Resolve Assault, then record casualties/control changes as separate board effects." };
+  if (actionId === "special") return { mode: "note", notes: "Resolve the selected bot Special Action, then apply the concrete board change." };
   return {};
+}
+
+function currentBotBoardEffectActionId() {
+  const actionId = currentBotAction();
+  if (actionId !== "special") return actionId;
+  return botSpecialBoardEffectActionId() || "special";
+}
+
+function botSpecialBoardEffectActionId() {
+  const special = botSpecialForDie();
+  if (!special) return "";
+  const title = special.title || "";
+  if (title.includes("Military")) return "place_unit";
+  if (title.includes("Stance")) return "change_stance";
+  if (title.includes("Strike")) return state.boardState.generalStrikeActive ? "flip_strike" : "place_strike";
+  if (title.includes("Cadre")) return "place_cadre";
+  if (title.includes("Assassination")) return "place_assassinations";
+  if (title.includes("Reform")) return "place_reform";
+  if (title.includes("Political")) return state.activeFaction === "coalition" ? "increase_unity" : "move_mcs";
+  if (title.includes("Cultural Leverage")) return "place_leverage_track";
+  if (title.includes("Economic Leverage")) return state.activeFaction === "radical_conservatives" ? "remove_leverage" : "place_leverage_track";
+  if (title.includes("Economic")) return "place_leverage_map";
+  if (title.includes("Agitation")) return derivedContextValue("reaction_can_advance") === false ? "place_assassinations" : "advance_reaction";
+  return "";
+}
+
+function boardEffectActionLabel(actionId) {
+  if (!actionId) return "";
+  if (actionId === "increase_ussr_deals") return "Increase U.S.S.R. Deals";
+  if (actionId === "move_mcs") return "Move Middle Class Sympathies";
+  if (actionId === "change_stance") return "Change Stance";
+  if (actionId === "special") return "Special Action";
+  return findAction(actionId)?.title || actionLabelForId(actionId) || actionId;
 }
 
 function currentEffectDraft() {
@@ -2555,9 +2594,11 @@ function updateBotTurn(key, value) {
   }
   if (key === "summary") {
     state.sequenceAnswers.electionPlayed = value === "one_action" ? "no" : "";
-    state.botTurn.actions = ["", ""];
+    const firstAction = firstAvailableBotActionFrom(0);
+    const nextStart = Math.max(0, priorityIndexForAction(firstAction) + 1);
+    state.botTurn.actions = [firstAction, value === "event_two_actions" ? firstAvailableBotActionFrom(nextStart) : ""];
     state.botTurn.specialDice = ["", ""];
-    state.botTurn.action = "";
+    state.botTurn.action = firstAction;
     state.botTurn.specialDie = "";
     clearSequenceChecks("bot:");
     state.actionSubpage = "bot_action1";
@@ -3271,13 +3312,17 @@ function choiceTrackerHtml() {
   const context = currentChoiceContext();
   const draft = currentEffectDraft();
   const actionText = context.actionLabel || "Current step";
+  const resolvedActionId = currentResolutionActionId();
+  const resolvedActionText = isActiveBot() && currentBotAction() === "special" && resolvedActionId && resolvedActionId !== "special"
+    ? ` | Board effect default: ${boardEffectActionLabel(resolvedActionId)}`
+    : "";
   const notice = state.boardNotice ? `<div class="toast-note">${esc(state.boardNotice)}</div>` : "";
   return `<section class="board-effect-panel">
     <div class="section-head">
       <div>
         <div class="field-label">Board monitor</div>
         <h3>Apply board effect</h3>
-        <p class="muted">${esc(context.controller)} ${esc(context.kind)} | ${esc(actionText)}</p>
+        <p class="muted">${esc(context.controller)} ${esc(context.kind)} | ${esc(actionText)}${esc(resolvedActionText)}</p>
       </div>
       ${badge("Autosaves", "good")}
     </div>
@@ -4817,7 +4862,13 @@ function currentBotActionIndex() {
 
 function currentBotAction() {
   const index = currentBotActionIndex();
-  return state.botTurn.actions[index] || (index === 0 ? state.botTurn.action : "") || "";
+  const stored = state.botTurn.actions[index] || (index === 0 ? state.botTurn.action : "") || "";
+  if (stored) return stored;
+  if (state.actionSubpage !== "bot_action1" && state.actionSubpage !== "bot_action2") return "";
+  if (index === 0) return firstAvailableBotActionFrom(0);
+  const previousAction = state.botTurn.actions[0] || state.botTurn.action || firstAvailableBotActionFrom(0);
+  const nextStart = Math.max(0, priorityIndexForAction(previousAction) + 1);
+  return firstAvailableBotActionFrom(nextStart);
 }
 
 function currentBotSpecialDie() {
