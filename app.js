@@ -1,5 +1,5 @@
 const APP_NAME = "The Weimar Republic Companion";
-const APP_BUILD = "phase-32-mcs-pawns";
+const APP_BUILD = "phase-35-counter-sv-legibility";
 const LOCAL_SAVE_KEY = "wr-companion-state-v6";
 const AUTO_SAVE_DELAY_MS = 350;
 
@@ -460,6 +460,8 @@ const boardTrackOptions = [
   ["generalStrikeActive", "General Strike"],
   ["yellowProgressLeverage", "Yellow Leverage / Progress"],
   ["blackReactionLeverage", "Black Leverage / Reaction"],
+  ["yellowEconomyLeverage", "Yellow Leverage / Economy"],
+  ["blackEconomyLeverage", "Black Leverage / Economy"],
   ["reactionLimitIgnored", "Reaction cap"]
 ];
 
@@ -531,12 +533,57 @@ function economyLabel(value) {
   return economyOptions.find(([id]) => id === value)?.[1] || value;
 }
 
+const economyLeverageOptions = [
+  ["none", "None"],
+  ["hyper", "Hyperinflation side"],
+  ["mass", "Mass Unemployment side"],
+  ["both", "Both sides"]
+];
+
+function normalizeEconomyLeverage(value) {
+  return economyLeverageOptions.some(([id]) => id === value) ? value : "none";
+}
+
+function economyLeverageLabel(value) {
+  return economyLeverageOptions.find(([id]) => id === value)?.[1] || "None";
+}
+
+function economyDistanceFromStable() {
+  const currentIndex = economyOptions.findIndex(([id]) => id === state.boardState.economy);
+  const stableIndex = economyOptions.findIndex(([id]) => id === "stable");
+  if (currentIndex < 0 || stableIndex < 0) return 0;
+  return Math.abs(currentIndex - stableIndex);
+}
+
+function economySideForCurrentMarker() {
+  if (String(state.boardState.economy || "").startsWith("mass")) return "mass";
+  if (String(state.boardState.economy || "").startsWith("hyper")) return "hyper";
+  return "";
+}
+
+function firstEconomyLeverageSide(value) {
+  if (value === "hyper" || value === "both") return "hyper";
+  if (value === "mass") return "mass";
+  return "";
+}
+
+function coalitionEconomyLeverageSide() {
+  return firstEconomyLeverageSide(state.boardState.blackEconomyLeverage) || economySideForCurrentMarker() || "hyper";
+}
+
+function rcEconomyLeverageSide() {
+  return eraForYear(state.year).label === "Crisis" ? "hyper" : "mass";
+}
+
+function shouldCoalitionUseEconomyLeverage() {
+  return economyDistanceFromStable() >= 2 || normalizeEconomyLeverage(state.boardState.blackEconomyLeverage) !== "none";
+}
+
 const mcsTrackTypes = ["progress", "reaction", "economy"];
 const mcsNumericBoxes = Array.from({ length: 6 }, (_, index) => String(index + 1));
 
 function blankMiddleClassPawns() {
   return {
-    available: 0,
     mats: Object.fromEntries(factionIds.map(id => [id, 0])),
     tracks: {
       progress: Object.fromEntries(mcsNumericBoxes.map(box => [box, 0])),
@@ -550,8 +597,7 @@ function normalizeMiddleClassPawns(existing = {}) {
   const source = existing && typeof existing === "object" && !Array.isArray(existing) ? existing : {};
   const mats = source.mats && typeof source.mats === "object" ? source.mats : {};
   const tracks = source.tracks && typeof source.tracks === "object" ? source.tracks : {};
-  return {
-    available: clampInt(source.available, 0, 20),
+  const normalized = {
     mats: Object.fromEntries(factionIds.map(id => [id, clampInt(mats[id], 0, 20)])),
     tracks: {
       progress: Object.fromEntries(mcsNumericBoxes.map(box => [box, clampInt(tracks.progress?.[box], 0, 20)])),
@@ -559,11 +605,13 @@ function normalizeMiddleClassPawns(existing = {}) {
       economy: Object.fromEntries(economyOptions.map(([id]) => [id, clampInt(tracks.economy?.[id], 0, 20)]))
     }
   };
+  const legacyAvailable = clampInt(source.available, 0, 20);
+  if (legacyAvailable) normalized.tracks.progress["1"] += legacyAvailable;
+  return normalized;
 }
 
 function mcsLocationOptions() {
   return [
-    ["available", "Available pool"],
     ...factionIds.map(id => [`mat:${id}`, `${factions[id].short} playmat`]),
     ...mcsNumericBoxes.map(box => [`progress:${box}`, `Progress box ${box}`]),
     ...mcsNumericBoxes.map(box => [`reaction:${box}`, `Reaction box ${box}`]),
@@ -575,8 +623,26 @@ function mcsLocationLabel(location) {
   return mcsLocationOptions().find(([id]) => id === location)?.[1] || location;
 }
 
+function mcsTrackLocationOptions() {
+  return mcsLocationOptions().filter(([id]) => !id.startsWith("mat:"));
+}
+
+function defaultMcsTrackLocation() {
+  const progressBox = String(Math.max(1, Math.min(6, Number(state.boardState?.progress || 1))));
+  return `progress:${progressBox}`;
+}
+
+function firstOccupiedMcsTrackLocation() {
+  const pawns = normalizeMiddleClassPawns(state.boardState.middleClassPawns);
+  for (const [location] of mcsTrackLocationOptions()) {
+    const [track, id] = location.split(":");
+    if (Number(pawns.tracks[track]?.[id] || 0) > 0) return location;
+  }
+  return defaultMcsTrackLocation();
+}
+
 function defaultMcsDestinationForFaction(factionId = state.activeFaction) {
-  return factions[factionId] ? `mat:${factionId}` : "available";
+  return factions[factionId] ? `mat:${factionId}` : defaultMcsTrackLocation();
 }
 
 function totalMiddleClassPawns(pawns = state.boardState.middleClassPawns) {
@@ -585,7 +651,7 @@ function totalMiddleClassPawns(pawns = state.boardState.middleClassPawns) {
   const trackTotal = mcsTrackTypes.reduce((sum, track) => {
     return sum + Object.values(normalized.tracks[track] || {}).reduce((inner, value) => inner + value, 0);
   }, 0);
-  return normalized.available + matTotal + trackTotal;
+  return matTotal + trackTotal;
 }
 
 const stanceOptions = [
@@ -772,8 +838,8 @@ const factionActions = {
       id: "move_mcs",
       title: "Move Middle Class Sympathies",
       citation: "6.3",
-      summary: "Move one Available pawn to the Coalition mat, or return one pawn from any faction mat.",
-      requires: ["Either an Available Middle Class Sympathies pawn or a pawn on a faction mat."]
+      summary: "Move one Middle Class Sympathies pawn between a track and a faction mat.",
+      requires: ["A Middle Class Sympathies pawn on a faction mat, the Progress/Reaction track, or the Economy track."]
     },
     {
       id: "move_units",
@@ -875,8 +941,8 @@ const factionActions = {
       id: "move_mcs",
       title: "Move Middle Class Sympathies",
       citation: "6.4",
-      summary: "Move one Available pawn to the KPD mat, or return one pawn from any faction mat.",
-      requires: ["Either an Available Middle Class Sympathies pawn or a pawn on a faction mat."]
+      summary: "Move one Middle Class Sympathies pawn between a track and a faction mat.",
+      requires: ["A Middle Class Sympathies pawn on a faction mat, the Progress/Reaction track, or the Economy track."]
     },
     {
       id: "move_units",
@@ -958,7 +1024,7 @@ const factionActions = {
       citation: "6.5",
       summary: "For each NSDAP Cadre on the map, move or return one Middle Class Sympathies pawn.",
       requires: ["At least one NSDAP Cadre on the map for this to have effect."],
-      procedure: ["For each Cadre, choose one: move an Available pawn to NSDAP, move one from RC mat to NSDAP, or return one from any faction mat."]
+      procedure: ["For each Cadre, choose one: move one pawn from a track to NSDAP, move one from RC mat to NSDAP, or return one from any faction mat to a track."]
     },
     {
       id: "move_units",
@@ -1038,8 +1104,8 @@ const factionActions = {
       id: "move_mcs",
       title: "Move Middle Class Sympathies",
       citation: "6.6",
-      summary: "Move one Available pawn to the RC mat, or return one pawn from any faction mat.",
-      requires: ["Either an Available Middle Class Sympathies pawn or a pawn on a faction mat."]
+      summary: "Move one Middle Class Sympathies pawn between a track and a faction mat.",
+      requires: ["A Middle Class Sympathies pawn on a faction mat, the Progress/Reaction track, or the Economy track."]
     },
     {
       id: "move_units",
@@ -1413,6 +1479,8 @@ const state = {
     generalStrikeActive: false,
     yellowProgressLeverage: "unknown",
     blackReactionLeverage: "unknown",
+    yellowEconomyLeverage: "none",
+    blackEconomyLeverage: "none",
     usDeals: 1,
     ussrDeals: 1,
     kpdStance: "left_revolutionary",
@@ -1673,6 +1741,8 @@ function normalizeState() {
     generalStrikeActive: !!state.boardState.generalStrikeActive,
     yellowProgressLeverage: state.boardState.yellowProgressLeverage || "unknown",
     blackReactionLeverage: state.boardState.blackReactionLeverage || "unknown",
+    yellowEconomyLeverage: normalizeEconomyLeverage(state.boardState.yellowEconomyLeverage),
+    blackEconomyLeverage: normalizeEconomyLeverage(state.boardState.blackEconomyLeverage),
     usDeals: Number.isFinite(Number(state.boardState.usDeals)) ? Number(state.boardState.usDeals) : 1,
     ussrDeals: Number.isFinite(Number(state.boardState.ussrDeals)) ? Number(state.boardState.ussrDeals) : 1,
     kpdStance: state.boardState.kpdStance || "left_revolutionary",
@@ -2051,6 +2121,8 @@ function setBoardState(key, value) {
     state.boardState[key] = Number.isFinite(parsed) ? Math.max(0, Math.min(max, parsed)) : 0;
   } else if (key === "generalStrikeActive" || key === "reactionLimitIgnored") {
     state.boardState[key] = value === true || value === "true";
+  } else if (key === "yellowEconomyLeverage" || key === "blackEconomyLeverage") {
+    state.boardState[key] = normalizeEconomyLeverage(value);
   } else {
     state.boardState[key] = value;
   }
@@ -2171,6 +2243,8 @@ function defaultEffectForAction(actionId) {
   if (actionId === "place_assassinations") return { mode: "marker", marker: "assassinations", markerOperation: "set", markerValue: "yellow_red", amount: 1 };
   if (actionId === "place_leverage_map") return { mode: "marker", marker: state.activeFaction === "radical_conservatives" ? "blackLeverage" : "yellowLeverage", markerOperation: "set", amount: 1 };
   if (actionId === "place_leverage_track") return { mode: "track", track: state.activeFaction === "radical_conservatives" ? "blackReactionLeverage" : "yellowProgressLeverage", trackValue: "above", operation: "set", amount: 1 };
+  if (actionId === "coalition_economic_leverage") return { mode: "track", track: "yellowEconomyLeverage", trackValue: coalitionEconomyLeverageSide(), operation: "set", amount: 1 };
+  if (actionId === "rc_economic_leverage") return { mode: "track", track: "blackEconomyLeverage", trackValue: rcEconomyLeverageSide(), operation: "set", amount: 1 };
   if (actionId === "remove_leverage") return { mode: "marker", marker: "yellowLeverage", markerOperation: "clear", amount: 1 };
   if (actionId === "advance_progress") return { mode: "track", track: "progress", operation: "add", amount: 1 };
   if (actionId === "advance_reaction") return { mode: "track", track: "reaction", operation: "add", amount: 1 };
@@ -2178,7 +2252,7 @@ function defaultEffectForAction(actionId) {
   if (actionId === "increase_ussr_deals") return { mode: "track", track: "ussrDeals", operation: "add", amount: 1 };
   if (actionId === "increase_unity") return { mode: "track", track: "unity", operation: "add", amount: 1 };
   if (actionId === "change_stance") return { mode: "track", track: state.activeFaction === "nsdap" ? "nsdapStance" : "kpdStance", operation: "set", trackValue: state.boardState[state.activeFaction === "nsdap" ? "nsdapStance" : "kpdStance"] };
-  if (actionId === "move_mcs") return { mode: "mcs", mcsSource: "available", mcsDestination: defaultMcsDestinationForFaction(), amount: 1 };
+  if (actionId === "move_mcs") return { mode: "mcs", mcsSource: firstOccupiedMcsTrackLocation(), mcsDestination: defaultMcsDestinationForFaction(), amount: 1 };
   if (actionId === "assault") return { mode: "note", notes: "Resolve Assault, then record casualties/control changes as separate board effects." };
   if (actionId === "special") return { mode: "note", notes: "Resolve the selected bot Special Action, then apply the concrete board change." };
   return {};
@@ -2202,8 +2276,8 @@ function botSpecialBoardEffectActionId() {
   if (title.includes("Reform")) return "place_reform";
   if (title.includes("Political")) return state.activeFaction === "coalition" ? "increase_unity" : "move_mcs";
   if (title.includes("Cultural Leverage")) return "place_leverage_track";
-  if (title.includes("Economic Leverage")) return state.activeFaction === "radical_conservatives" ? "remove_leverage" : "place_leverage_track";
-  if (title.includes("Economic")) return "place_leverage_map";
+  if (title.includes("Economic Leverage")) return state.activeFaction === "radical_conservatives" ? "rc_economic_leverage" : "place_leverage_track";
+  if (title.includes("Economic")) return shouldCoalitionUseEconomyLeverage() ? "coalition_economic_leverage" : "place_leverage_map";
   if (title.includes("Agitation")) return derivedContextValue("reaction_can_advance") === false ? "place_assassinations" : "advance_reaction";
   return "";
 }
@@ -2212,6 +2286,8 @@ function boardEffectActionLabel(actionId) {
   if (!actionId) return "";
   if (actionId === "increase_ussr_deals") return "Increase U.S.S.R. Deals";
   if (actionId === "move_mcs") return "Move Middle Class Sympathies";
+  if (actionId === "coalition_economic_leverage") return "Yellow Economy Leverage";
+  if (actionId === "rc_economic_leverage") return "Black Economy Leverage";
   if (actionId === "change_stance") return "Change Stance";
   if (actionId === "special") return "Special Action";
   return findAction(actionId)?.title || actionLabelForId(actionId) || actionId;
@@ -2232,7 +2308,7 @@ function currentEffectDraft() {
     markerValue: "",
     track: "progress",
     trackValue: "",
-    mcsSource: "available",
+    mcsSource: firstOccupiedMcsTrackLocation(),
     mcsDestination: defaultMcsDestinationForFaction(),
     notes: "",
     ...defaultEffectForAction(currentResolutionActionId()),
@@ -2286,14 +2362,24 @@ function assignBoardTrack(track, value, operation = "set", amount = 1) {
     state.boardState.unity = next;
     return `Coalition Unity -> ${next}`;
   }
+  if (track === "yellowEconomyLeverage" || track === "blackEconomyLeverage") {
+    const next = operation === "remove" ? "none" : normalizeEconomyLeverage(value || state.boardState[track]);
+    state.boardState[track] = next;
+    return `${boardTrackOptions.find(([id]) => id === track)?.[1] || track} -> ${economyLeverageLabel(next)}`;
+  }
   const next = value || state.boardState[track];
   state.boardState[track] = next;
   return `${boardTrackOptions.find(([id]) => id === track)?.[1] || track} -> ${next}`;
 }
 
+function clearEconomyLeverageTrack(track) {
+  if (normalizeEconomyLeverage(state.boardState[track]) === "none") return "";
+  state.boardState[track] = "none";
+  return `${boardTrackOptions.find(([id]) => id === track)?.[1] || track} -> None`;
+}
+
 function getMiddleClassLocationCount(location, pawns = state.boardState.middleClassPawns) {
   const normalized = normalizeMiddleClassPawns(pawns);
-  if (location === "available") return normalized.available;
   const [type, id] = String(location || "").split(":");
   if (type === "mat" && factions[id]) return normalized.mats[id];
   if (mcsTrackTypes.includes(type) && Object.prototype.hasOwnProperty.call(normalized.tracks[type], id)) return normalized.tracks[type][id];
@@ -2303,10 +2389,6 @@ function getMiddleClassLocationCount(location, pawns = state.boardState.middleCl
 function writeMiddleClassLocationCount(pawns, location, value) {
   const next = normalizeMiddleClassPawns(pawns);
   const count = clampInt(value, 0, 20);
-  if (location === "available") {
-    next.available = count;
-    return next;
-  }
   const [type, id] = String(location || "").split(":");
   if (type === "mat" && factions[id]) next.mats[id] = count;
   if (mcsTrackTypes.includes(type) && Object.prototype.hasOwnProperty.call(next.tracks[type], id)) next.tracks[type][id] = count;
@@ -2318,10 +2400,10 @@ function moveMiddleClassPawns(source, destination, amount = 1) {
   if (!parsed) return "";
   if (!mcsLocationOptions().some(([id]) => id === source) || !mcsLocationOptions().some(([id]) => id === destination)) return "";
   if (source === destination) return `MCS already at ${mcsLocationLabel(destination)}`;
-  const available = getMiddleClassLocationCount(source);
-  const moved = Math.min(parsed, available);
+  const sourceCount = getMiddleClassLocationCount(source);
+  const moved = Math.min(parsed, sourceCount);
   if (!moved) return `No MCS pawn at ${mcsLocationLabel(source)}`;
-  let pawns = writeMiddleClassLocationCount(state.boardState.middleClassPawns, source, available - moved);
+  let pawns = writeMiddleClassLocationCount(state.boardState.middleClassPawns, source, sourceCount - moved);
   pawns = writeMiddleClassLocationCount(pawns, destination, getMiddleClassLocationCount(destination, pawns) + moved);
   state.boardState.middleClassPawns = pawns;
   return `MCS ${moved} moved from ${mcsLocationLabel(source)} to ${mcsLocationLabel(destination)}`;
@@ -2375,8 +2457,16 @@ function applyBoardEffect() {
     summary = `${spaceLabel(spaceId)} ${markerOptions.find(([id]) => id === marker)?.[1] || marker} updated`;
   } else if (draft.mode === "track") {
     summary = assignBoardTrack(draft.track, draft.trackValue, draft.operation, draft.amount);
+    if (currentResolutionActionId() === "coalition_economic_leverage" && draft.track === "yellowEconomyLeverage") {
+      const removedSummary = clearEconomyLeverageTrack("blackEconomyLeverage");
+      summary = [removedSummary, summary].filter(Boolean).join("; ");
+    }
+    if (currentResolutionActionId() === "rc_economic_leverage" && draft.track === "blackEconomyLeverage") {
+      const removedSummary = clearEconomyLeverageTrack("yellowEconomyLeverage");
+      summary = [removedSummary, summary].filter(Boolean).join("; ");
+    }
     if (currentResolutionActionId() === "increase_unity" && draft.track === "unity" && draft.operation === "add") {
-      const spendSummary = moveMiddleClassPawns("mat:coalition", "available", 1);
+      const spendSummary = moveMiddleClassPawns("mat:coalition", defaultMcsTrackLocation(), 1);
       if (spendSummary) summary = [summary, spendSummary].filter(Boolean).join("; ");
     }
   } else if (draft.mode === "mcs") {
@@ -2549,6 +2639,8 @@ function applyScenario(scenarioId) {
     generalStrikeActive: false,
     yellowProgressLeverage: "unknown",
     blackReactionLeverage: "unknown",
+    yellowEconomyLeverage: "none",
+    blackEconomyLeverage: "none",
     usDeals: scenario.start.usDeals,
     ussrDeals: scenario.start.ussrDeals,
     kpdStance: scenario.start.kpdStance,
@@ -3096,6 +3188,8 @@ function resetApp() {
     generalStrikeActive: false,
     yellowProgressLeverage: "unknown",
     blackReactionLeverage: "unknown",
+    yellowEconomyLeverage: "none",
+    blackEconomyLeverage: "none",
     usDeals: 1,
     ussrDeals: 1,
     kpdStance: "left_revolutionary",
@@ -3581,6 +3675,19 @@ function trackEffectInputHtml(draft) {
     return `<div>
       <div class="context-label">Economy box</div>
       <select class="select-input" onchange="updateEffectDraft('trackValue', this.value)">${selectOptionsHtml(economyOptions, draft.trackValue || state.boardState.economy)}</select>
+    </div>`;
+  }
+  if (draft.track === "yellowEconomyLeverage" || draft.track === "blackEconomyLeverage") {
+    return `<div>
+      <div class="context-label">Economy side</div>
+      <select class="select-input" onchange="updateEffectDraft('trackValue', this.value)">${selectOptionsHtml(economyLeverageOptions, draft.trackValue || state.boardState[draft.track])}</select>
+    </div>
+    <div>
+      <div class="context-label">Change</div>
+      <select class="select-input" onchange="updateEffectDraft('operation', this.value)">
+        <option value="set" ${draft.operation === "set" ? "selected" : ""}>Place / set</option>
+        <option value="remove" ${draft.operation === "remove" ? "selected" : ""}>Remove all</option>
+      </select>
     </div>`;
   }
   if (draft.track === "unity") {
@@ -4415,14 +4522,12 @@ function middleClassPawnsHtml() {
     <div class="context-label">Middle Class pawns</div>
     <div class="mcs-quick-row">
       <span>Total ${totalMiddleClassPawns(pawns)}</span>
-      <span>Available ${pawns.available}</span>
       <span>Playmats ${matTotal}</span>
       <span>Tracks ${trackTotal}</span>
     </div>
     <details class="mcs-details">
       <summary>Edit pawn locations</summary>
       <div class="mcs-grid">
-        ${input("available", pawns.available, "Available")}
         ${factionIds.map(id => input(`mat:${id}`, pawns.mats[id], `${factions[id].short} mat`)).join("")}
       </div>
       <div class="mcs-subhead">Progress track</div>
@@ -4515,6 +4620,14 @@ function boardStateControlsHtml() {
         <option value="above" ${board.blackReactionLeverage === "above" ? "selected" : ""}>Yes, above current Reaction</option>
         <option value="none" ${board.blackReactionLeverage === "none" ? "selected" : ""}>No</option>
       </select>
+    </div>
+    <div class="context-item">
+      <div class="context-label">Yellow Economy Leverage</div>
+      <select class="select-input" onchange="setBoardState('yellowEconomyLeverage', this.value)">${selectOptionsHtml(economyLeverageOptions, board.yellowEconomyLeverage)}</select>
+    </div>
+    <div class="context-item">
+      <div class="context-label">Black Economy Leverage</div>
+      <select class="select-input" onchange="setBoardState('blackEconomyLeverage', this.value)">${selectOptionsHtml(economyLeverageOptions, board.blackEconomyLeverage)}</select>
     </div>
     ${middleClassPawnsHtml()}
     <div class="context-item wide">
@@ -5430,6 +5543,8 @@ function boardSummaryLineHtml() {
     <span>Progress ${board.progress}</span>
     <span>Reaction ${board.reaction}</span>
     <span>${esc(economyLabel(board.economy))}</span>
+    <span>Eco Lev Y ${esc(economyLeverageLabel(board.yellowEconomyLeverage))}</span>
+    <span>Eco Lev B ${esc(economyLeverageLabel(board.blackEconomyLeverage))}</span>
     <span>Unity ${esc(board.unity)}</span>
     <span>U.S. ${board.usDeals}</span>
     <span>U.S.S.R. ${board.ussrDeals}</span>
