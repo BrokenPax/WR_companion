@@ -1,5 +1,5 @@
 const APP_NAME = "The Weimar Republic Companion";
-const APP_BUILD = "phase-36-counter-sv-layer";
+const APP_BUILD = "phase-37-scenario-leverage-seeds";
 const LOCAL_SAVE_KEY = "wr-companion-state-v6";
 const AUTO_SAVE_DELAY_MS = 350;
 
@@ -460,8 +460,8 @@ const boardTrackOptions = [
   ["generalStrikeActive", "General Strike"],
   ["yellowProgressLeverage", "Yellow Leverage / Progress"],
   ["blackReactionLeverage", "Black Leverage / Reaction"],
-  ["yellowEconomyLeverage", "Yellow Leverage / Economy"],
-  ["blackEconomyLeverage", "Black Leverage / Economy"],
+  ["yellowEconomyLeverage", "Yellow Leverage / Economy marker"],
+  ["blackEconomyLeverage", "Black Leverage / Economy marker"],
   ["reactionLimitIgnored", "Reaction cap"]
 ];
 
@@ -577,6 +577,86 @@ function rcEconomyLeverageSide() {
 
 function shouldCoalitionUseEconomyLeverage() {
   return economyDistanceFromStable() >= 2 || normalizeEconomyLeverage(state.boardState.blackEconomyLeverage) !== "none";
+}
+
+function blankEconomicLeverageBoxes() {
+  return {
+    usDeals: { yellow: [], black: [] },
+    ussrDeals: { yellow: [], black: [] }
+  };
+}
+
+function normalizeBoxList(value) {
+  return Array.isArray(value)
+    ? [...new Set(value.map(item => clampInt(item, 1, 5)).filter(Boolean))].sort((a, b) => a - b)
+    : [];
+}
+
+function normalizeEconomicLeverageBoxes(existing = {}) {
+  const source = existing && typeof existing === "object" && !Array.isArray(existing) ? existing : {};
+  return {
+    usDeals: {
+      yellow: normalizeBoxList(source.usDeals?.yellow),
+      black: normalizeBoxList(source.usDeals?.black)
+    },
+    ussrDeals: {
+      yellow: normalizeBoxList(source.ussrDeals?.yellow),
+      black: normalizeBoxList(source.ussrDeals?.black)
+    }
+  };
+}
+
+function economicLeverageBoxesEmpty(boxes) {
+  const normalized = normalizeEconomicLeverageBoxes(boxes);
+  return !normalized.usDeals.yellow.length
+    && !normalized.usDeals.black.length
+    && !normalized.ussrDeals.yellow.length
+    && !normalized.ussrDeals.black.length;
+}
+
+function boxListLabel(boxes) {
+  const list = normalizeBoxList(boxes);
+  return list.length ? list.join(", ") : "none";
+}
+
+function leverageRelationForBoxes(boxes, currentValue) {
+  return normalizeBoxList(boxes).includes(Number(currentValue)) ? "above" : "none";
+}
+
+function scenarioLeverageDefaults(scenarioId, start = {}) {
+  const defaults = {
+    tutorial_1921: {
+      progressYellow: [2, 3],
+      reactionBlack: [2, 3],
+      economic: { usDeals: { yellow: [2, 3, 4, 5], black: [] }, ussrDeals: { yellow: [4], black: [3] } }
+    },
+    revolution_1919: {
+      progressYellow: [],
+      reactionBlack: [2],
+      economic: { usDeals: { yellow: [1, 2, 3, 4, 5], black: [] }, ussrDeals: { yellow: [2, 4], black: [3] } }
+    },
+    new_hope_1924: {
+      progressYellow: [2, 3],
+      reactionBlack: [2, 3],
+      economic: { usDeals: { yellow: [3, 4, 5], black: [] }, ussrDeals: { yellow: [2, 4], black: [3] } }
+    },
+    black_sun_1928: {
+      progressYellow: [2, 3, 4],
+      reactionBlack: [2, 3],
+      economic: { usDeals: { yellow: [4, 5], black: [] }, ussrDeals: { yellow: [4], black: [] } }
+    },
+    fate_1919: {
+      progressYellow: [],
+      reactionBlack: [2],
+      economic: { usDeals: { yellow: [1, 2, 3, 4, 5], black: [] }, ussrDeals: { yellow: [2, 4], black: [1, 3] } }
+    }
+  };
+  const data = defaults[scenarioId] || { progressYellow: [], reactionBlack: [], economic: blankEconomicLeverageBoxes() };
+  return {
+    yellowProgressLeverage: leverageRelationForBoxes(data.progressYellow, start.progress),
+    blackReactionLeverage: leverageRelationForBoxes(data.reactionBlack, start.reaction),
+    economicLeverageBoxes: normalizeEconomicLeverageBoxes(data.economic)
+  };
 }
 
 const mcsTrackTypes = ["progress", "reaction", "economy"];
@@ -1481,6 +1561,7 @@ const state = {
     blackReactionLeverage: "unknown",
     yellowEconomyLeverage: "none",
     blackEconomyLeverage: "none",
+    economicLeverageBoxes: blankEconomicLeverageBoxes(),
     usDeals: 1,
     ussrDeals: 1,
     kpdStance: "left_revolutionary",
@@ -1743,6 +1824,7 @@ function normalizeState() {
     blackReactionLeverage: state.boardState.blackReactionLeverage || "unknown",
     yellowEconomyLeverage: normalizeEconomyLeverage(state.boardState.yellowEconomyLeverage),
     blackEconomyLeverage: normalizeEconomyLeverage(state.boardState.blackEconomyLeverage),
+    economicLeverageBoxes: normalizeEconomicLeverageBoxes(existingBoard.economicLeverageBoxes),
     usDeals: Number.isFinite(Number(state.boardState.usDeals)) ? Number(state.boardState.usDeals) : 1,
     ussrDeals: Number.isFinite(Number(state.boardState.ussrDeals)) ? Number(state.boardState.ussrDeals) : 1,
     kpdStance: state.boardState.kpdStance || "left_revolutionary",
@@ -1758,6 +1840,13 @@ function normalizeState() {
   state.boardState.ussrDeals = Math.max(0, Math.min(5, state.boardState.ussrDeals));
   if (!stanceOptions.some(([id]) => id === state.boardState.kpdStance)) state.boardState.kpdStance = "left_revolutionary";
   if (!stanceOptions.some(([id]) => id === state.boardState.nsdapStance)) state.boardState.nsdapStance = "revolutionary";
+  const scenarioForLeverage = scenarios.find(scenario => scenario.id === state.scenarioId);
+  if (scenarioForLeverage) {
+    const leverageDefaults = scenarioLeverageDefaults(scenarioForLeverage.id, scenarioForLeverage.start);
+    if (state.boardState.yellowProgressLeverage === "unknown") state.boardState.yellowProgressLeverage = leverageDefaults.yellowProgressLeverage;
+    if (state.boardState.blackReactionLeverage === "unknown") state.boardState.blackReactionLeverage = leverageDefaults.blackReactionLeverage;
+    if (economicLeverageBoxesEmpty(existingBoard.economicLeverageBoxes)) state.boardState.economicLeverageBoxes = leverageDefaults.economicLeverageBoxes;
+  }
   if (!state.controllers || typeof state.controllers !== "object") state.controllers = {};
   state.controllers = {
     coalition: state.controllers.coalition === "bot" ? "bot" : "human",
@@ -2630,6 +2719,7 @@ function applyScenario(scenarioId) {
   state.selectedActionId = "";
   state.actionContext = {};
   state.botTurn = emptyBotTurn();
+  const leverageDefaults = scenarioLeverageDefaults(scenario.id, scenario.start);
   state.boardState = {
     ...state.boardState,
     progress: scenario.start.progress,
@@ -2637,10 +2727,11 @@ function applyScenario(scenarioId) {
     economy: scenario.start.economy,
     unity: scenario.start.unity,
     generalStrikeActive: false,
-    yellowProgressLeverage: "unknown",
-    blackReactionLeverage: "unknown",
+    yellowProgressLeverage: leverageDefaults.yellowProgressLeverage,
+    blackReactionLeverage: leverageDefaults.blackReactionLeverage,
     yellowEconomyLeverage: "none",
     blackEconomyLeverage: "none",
+    economicLeverageBoxes: leverageDefaults.economicLeverageBoxes,
     usDeals: scenario.start.usDeals,
     ussrDeals: scenario.start.ussrDeals,
     kpdStance: scenario.start.kpdStance,
@@ -3190,6 +3281,7 @@ function resetApp() {
     blackReactionLeverage: "unknown",
     yellowEconomyLeverage: "none",
     blackEconomyLeverage: "none",
+    economicLeverageBoxes: blankEconomicLeverageBoxes(),
     usDeals: 1,
     ussrDeals: 1,
     kpdStance: "left_revolutionary",
@@ -4035,6 +4127,7 @@ function markerAuditLabel(marker) {
 function scenarioTrackAuditItems(scenario) {
   if (!scenario) return [];
   const board = state.boardState;
+  const leverageDefaults = scenarioLeverageDefaults(scenario.id, scenario.start);
   const fields = [
     ["year", "Year", state.year, scenario.start.year],
     ["round", "Half-year", state.round, scenario.start.round],
@@ -4047,7 +4140,13 @@ function scenarioTrackAuditItems(scenario) {
     ["ussrDeals", "U.S.S.R. Deals", board.ussrDeals, scenario.start.ussrDeals],
     ["kpdStance", "KPD Stance", board.kpdStance, scenario.start.kpdStance],
     ["nsdapStance", "NSDAP Stance", board.nsdapStance, scenario.start.nsdapStance],
-    ["reactionLimitIgnored", "Reaction cap", board.reactionLimitIgnored, scenario.start.reactionLimitIgnored]
+    ["reactionLimitIgnored", "Reaction cap", board.reactionLimitIgnored, scenario.start.reactionLimitIgnored],
+    ["yellowProgressLeverage", "Yellow above Progress", board.yellowProgressLeverage, leverageDefaults.yellowProgressLeverage],
+    ["blackReactionLeverage", "Black above Reaction", board.blackReactionLeverage, leverageDefaults.blackReactionLeverage],
+    ["usDealsYellowLeverage", "U.S. Deals yellow Leverage", boxListLabel(board.economicLeverageBoxes?.usDeals?.yellow), boxListLabel(leverageDefaults.economicLeverageBoxes.usDeals.yellow)],
+    ["usDealsBlackLeverage", "U.S. Deals black Leverage", boxListLabel(board.economicLeverageBoxes?.usDeals?.black), boxListLabel(leverageDefaults.economicLeverageBoxes.usDeals.black)],
+    ["ussrDealsYellowLeverage", "U.S.S.R. Deals yellow Leverage", boxListLabel(board.economicLeverageBoxes?.ussrDeals?.yellow), boxListLabel(leverageDefaults.economicLeverageBoxes.ussrDeals.yellow)],
+    ["ussrDealsBlackLeverage", "U.S.S.R. Deals black Leverage", boxListLabel(board.economicLeverageBoxes?.ussrDeals?.black), boxListLabel(leverageDefaults.economicLeverageBoxes.ussrDeals.black)]
   ];
   return fields
     .filter(([, , current, expected]) => current !== expected)
@@ -4540,6 +4639,19 @@ function middleClassPawnsHtml() {
   </div>`;
 }
 
+function economicLeverageBoxesHtml() {
+  const boxes = normalizeEconomicLeverageBoxes(state.boardState.economicLeverageBoxes);
+  return `<div class="context-item wide">
+    <div class="context-label">Economic track leverage setup</div>
+    <div class="mcs-quick-row">
+      <span>U.S. Deals yellow: ${esc(boxListLabel(boxes.usDeals.yellow))}</span>
+      <span>U.S. Deals black: ${esc(boxListLabel(boxes.usDeals.black))}</span>
+      <span>U.S.S.R. Deals yellow: ${esc(boxListLabel(boxes.ussrDeals.yellow))}</span>
+      <span>U.S.S.R. Deals black: ${esc(boxListLabel(boxes.ussrDeals.black))}</span>
+    </div>
+  </div>`;
+}
+
 function boardStateControlsHtml() {
   const board = state.boardState;
   const progressOptions = Array.from({ length: 7 }, (_, value) => `<option value="${value}" ${board.progress === value ? "selected" : ""}>${value}</option>`).join("");
@@ -4622,13 +4734,14 @@ function boardStateControlsHtml() {
       </select>
     </div>
     <div class="context-item">
-      <div class="context-label">Yellow Economy Leverage</div>
+      <div class="context-label">Yellow Economy-marker Leverage</div>
       <select class="select-input" onchange="setBoardState('yellowEconomyLeverage', this.value)">${selectOptionsHtml(economyLeverageOptions, board.yellowEconomyLeverage)}</select>
     </div>
     <div class="context-item">
-      <div class="context-label">Black Economy Leverage</div>
+      <div class="context-label">Black Economy-marker Leverage</div>
       <select class="select-input" onchange="setBoardState('blackEconomyLeverage', this.value)">${selectOptionsHtml(economyLeverageOptions, board.blackEconomyLeverage)}</select>
     </div>
+    ${economicLeverageBoxesHtml()}
     ${middleClassPawnsHtml()}
     <div class="context-item wide">
       <div class="context-label">Board notes</div>
@@ -5543,8 +5656,8 @@ function boardSummaryLineHtml() {
     <span>Progress ${board.progress}</span>
     <span>Reaction ${board.reaction}</span>
     <span>${esc(economyLabel(board.economy))}</span>
-    <span>Eco Lev Y ${esc(economyLeverageLabel(board.yellowEconomyLeverage))}</span>
-    <span>Eco Lev B ${esc(economyLeverageLabel(board.blackEconomyLeverage))}</span>
+    <span>Eco marker Y ${esc(economyLeverageLabel(board.yellowEconomyLeverage))}</span>
+    <span>Eco marker B ${esc(economyLeverageLabel(board.blackEconomyLeverage))}</span>
     <span>Unity ${esc(board.unity)}</span>
     <span>U.S. ${board.usDeals}</span>
     <span>U.S.S.R. ${board.ussrDeals}</span>
