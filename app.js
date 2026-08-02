@@ -1,5 +1,5 @@
 const APP_NAME = "The Weimar Republic Companion";
-const APP_BUILD = "phase-37-scenario-leverage-seeds";
+const APP_BUILD = "phase-39-new-year-turn-order-card";
 const LOCAL_SAVE_KEY = "wr-companion-state-v6";
 const AUTO_SAVE_DELAY_MS = 350;
 
@@ -579,6 +579,67 @@ function shouldCoalitionUseEconomyLeverage() {
   return economyDistanceFromStable() >= 2 || normalizeEconomyLeverage(state.boardState.blackEconomyLeverage) !== "none";
 }
 
+const progressReactionBoxes = Array.from({ length: 6 }, (_, index) => String(index + 1));
+const dealTrackBoxes = Array.from({ length: 5 }, (_, index) => String(index + 1));
+
+const scenarioTrackPieceData = {
+  tutorial_1921: {
+    progressReaction: { yellowLeverage: [2, 3], blackLeverage: [2, 3], middleClass: [3, 4, 5], reforms: [2, 3, 4, 5], assassinations: [2], nsdapCadres: [4], conservativeCliques: [5] },
+    economy: { middleClass: ["hyper_2", "hyper_2"], dollarDependence: [] },
+    usDeals: { yellowLeverage: [2, 3, 4, 5], blackLeverage: [], dollarDependence: [3, 4, 5] },
+    ussrDeals: { yellowLeverage: [4], blackLeverage: [3], reichswehr: [1, 3, 5], kpdCadres: [4, 5] }
+  },
+  revolution_1919: {
+    progressReaction: { yellowLeverage: [], blackLeverage: [2], middleClass: [2, 3, 4, 5], reforms: [2, 3, 4, 5], assassinations: [2], nsdapCadres: [3, 4], conservativeCliques: [5] },
+    economy: { middleClass: ["stable", "stable"], dollarDependence: [] },
+    usDeals: { yellowLeverage: [1, 2, 3, 4, 5], blackLeverage: [], dollarDependence: [3, 4, 5] },
+    ussrDeals: { yellowLeverage: [2, 4], blackLeverage: [3], reichswehr: [1, 3, 5], kpdCadres: [2, 4, 5] }
+  },
+  new_hope_1924: {
+    progressReaction: { yellowLeverage: [2, 3], blackLeverage: [2, 3], middleClass: [4, 5], reforms: [2, 3, 4, 5], assassinations: [2], nsdapCadres: [4], conservativeCliques: [5] },
+    economy: { middleClass: ["stable", "stable"], dollarDependence: [] },
+    usDeals: { yellowLeverage: [3, 4, 5], blackLeverage: [], dollarDependence: [3, 4, 5] },
+    ussrDeals: { yellowLeverage: [2, 4], blackLeverage: [3], reichswehr: [3, 5], kpdCadres: [4, 5] }
+  },
+  black_sun_1928: {
+    progressReaction: { yellowLeverage: [2, 3, 4], blackLeverage: [2, 3], middleClass: [4, 5], reforms: [2, 3, 4, 5], assassinations: [2], nsdapCadres: [3, 4], conservativeCliques: [5] },
+    economy: { middleClass: ["stable", "stable"], dollarDependence: ["hyperinflation", "hyper_3"] },
+    usDeals: { yellowLeverage: [4, 5], blackLeverage: [], dollarDependence: [5] },
+    ussrDeals: { yellowLeverage: [4], blackLeverage: [], reichswehr: [5], kpdCadres: [4, 5] }
+  },
+  fate_1919: {
+    progressReaction: { yellowLeverage: [], blackLeverage: [2], middleClass: [2, 3, 4, 5], reforms: [2, 3, 4, 5], assassinations: [2], nsdapCadres: [3, 4], conservativeCliques: [5] },
+    economy: { middleClass: ["stable", "stable"], dollarDependence: [] },
+    usDeals: { yellowLeverage: [1, 2, 3, 4, 5], blackLeverage: [], dollarDependence: [3, 4, 5] },
+    ussrDeals: { yellowLeverage: [2, 4], blackLeverage: [1, 3], reichswehr: [1, 3, 5], kpdCadres: [2, 4, 5] }
+  }
+};
+
+function countMapFromList(keys, items = []) {
+  const map = Object.fromEntries(keys.map(key => [key, 0]));
+  (Array.isArray(items) ? items : []).forEach(item => {
+    const key = String(item);
+    if (Object.prototype.hasOwnProperty.call(map, key)) map[key] += 1;
+  });
+  return map;
+}
+
+function normalizeCountMap(source, keys, max = 20) {
+  const data = source && typeof source === "object" && !Array.isArray(source) ? source : {};
+  return Object.fromEntries(keys.map(key => [key, clampInt(data[key], 0, max)]));
+}
+
+function countMapHasAny(map) {
+  return Object.values(map || {}).some(value => Number(value) > 0);
+}
+
+function countMapLabel(map) {
+  const parts = Object.entries(map || {})
+    .filter(([, value]) => Number(value) > 0)
+    .map(([key, value]) => Number(value) > 1 ? `${key} x${value}` : key);
+  return parts.length ? parts.join(", ") : "none";
+}
+
 function blankEconomicLeverageBoxes() {
   return {
     usDeals: { yellow: [], black: [] },
@@ -624,77 +685,192 @@ function leverageRelationForBoxes(boxes, currentValue) {
 }
 
 function scenarioLeverageDefaults(scenarioId, start = {}) {
-  const defaults = {
-    tutorial_1921: {
-      progressYellow: [2, 3],
-      reactionBlack: [2, 3],
-      economic: { usDeals: { yellow: [2, 3, 4, 5], black: [] }, ussrDeals: { yellow: [4], black: [3] } }
-    },
-    revolution_1919: {
-      progressYellow: [],
-      reactionBlack: [2],
-      economic: { usDeals: { yellow: [1, 2, 3, 4, 5], black: [] }, ussrDeals: { yellow: [2, 4], black: [3] } }
-    },
-    new_hope_1924: {
-      progressYellow: [2, 3],
-      reactionBlack: [2, 3],
-      economic: { usDeals: { yellow: [3, 4, 5], black: [] }, ussrDeals: { yellow: [2, 4], black: [3] } }
-    },
-    black_sun_1928: {
-      progressYellow: [2, 3, 4],
-      reactionBlack: [2, 3],
-      economic: { usDeals: { yellow: [4, 5], black: [] }, ussrDeals: { yellow: [4], black: [] } }
-    },
-    fate_1919: {
-      progressYellow: [],
-      reactionBlack: [2],
-      economic: { usDeals: { yellow: [1, 2, 3, 4, 5], black: [] }, ussrDeals: { yellow: [2, 4], black: [1, 3] } }
-    }
-  };
-  const data = defaults[scenarioId] || { progressYellow: [], reactionBlack: [], economic: blankEconomicLeverageBoxes() };
+  const pieces = scenarioTrackPieceData[scenarioId] || {};
+  const progressReaction = pieces.progressReaction || {};
+  const usDeals = pieces.usDeals || {};
+  const ussrDeals = pieces.ussrDeals || {};
   return {
-    yellowProgressLeverage: leverageRelationForBoxes(data.progressYellow, start.progress),
-    blackReactionLeverage: leverageRelationForBoxes(data.reactionBlack, start.reaction),
-    economicLeverageBoxes: normalizeEconomicLeverageBoxes(data.economic)
+    yellowProgressLeverage: leverageRelationForBoxes(progressReaction.yellowLeverage, start.progress),
+    blackReactionLeverage: leverageRelationForBoxes(progressReaction.blackLeverage, start.reaction),
+    economicLeverageBoxes: normalizeEconomicLeverageBoxes({
+      usDeals: { yellow: usDeals.yellowLeverage || [], black: usDeals.blackLeverage || [] },
+      ussrDeals: { yellow: ussrDeals.yellowLeverage || [], black: ussrDeals.blackLeverage || [] }
+    })
   };
 }
 
-const mcsTrackTypes = ["progress", "reaction", "economy"];
-const mcsNumericBoxes = Array.from({ length: 6 }, (_, index) => String(index + 1));
+const mcsTrackTypes = ["progressReaction", "economy"];
+const mcsNumericBoxes = progressReactionBoxes;
+
+function blankTrackPieces() {
+  const blankProgress = () => Object.fromEntries(progressReactionBoxes.map(box => [box, 0]));
+  const blankDeal = () => Object.fromEntries(dealTrackBoxes.map(box => [box, 0]));
+  const blankEconomy = () => Object.fromEntries(economyOptions.map(([id]) => [id, 0]));
+  return {
+    progressReaction: {
+      yellowLeverage: blankProgress(),
+      blackLeverage: blankProgress(),
+      reforms: blankProgress(),
+      assassinations: blankProgress(),
+      nsdapCadres: blankProgress(),
+      conservativeCliques: blankProgress()
+    },
+    economy: {
+      dollarDependence: blankEconomy()
+    },
+    usDeals: {
+      yellowLeverage: blankDeal(),
+      blackLeverage: blankDeal(),
+      dollarDependence: blankDeal()
+    },
+    ussrDeals: {
+      yellowLeverage: blankDeal(),
+      blackLeverage: blankDeal(),
+      reichswehr: blankDeal(),
+      kpdCadres: blankDeal()
+    }
+  };
+}
+
+function normalizeTrackPieces(existing = {}) {
+  const source = existing && typeof existing === "object" && !Array.isArray(existing) ? existing : {};
+  const progress = source.progressReaction || {};
+  const economy = source.economy || {};
+  const usDeals = source.usDeals || {};
+  const ussrDeals = source.ussrDeals || {};
+  return {
+    progressReaction: {
+      yellowLeverage: normalizeCountMap(progress.yellowLeverage, progressReactionBoxes, 9),
+      blackLeverage: normalizeCountMap(progress.blackLeverage, progressReactionBoxes, 9),
+      reforms: normalizeCountMap(progress.reforms, progressReactionBoxes, 9),
+      assassinations: normalizeCountMap(progress.assassinations, progressReactionBoxes, 9),
+      nsdapCadres: normalizeCountMap(progress.nsdapCadres, progressReactionBoxes, 9),
+      conservativeCliques: normalizeCountMap(progress.conservativeCliques, progressReactionBoxes, 9)
+    },
+    economy: {
+      dollarDependence: normalizeCountMap(economy.dollarDependence, economyOptions.map(([id]) => id), 9)
+    },
+    usDeals: {
+      yellowLeverage: normalizeCountMap(usDeals.yellowLeverage, dealTrackBoxes, 9),
+      blackLeverage: normalizeCountMap(usDeals.blackLeverage, dealTrackBoxes, 9),
+      dollarDependence: normalizeCountMap(usDeals.dollarDependence, dealTrackBoxes, 9)
+    },
+    ussrDeals: {
+      yellowLeverage: normalizeCountMap(ussrDeals.yellowLeverage, dealTrackBoxes, 9),
+      blackLeverage: normalizeCountMap(ussrDeals.blackLeverage, dealTrackBoxes, 9),
+      reichswehr: normalizeCountMap(ussrDeals.reichswehr, dealTrackBoxes, 9),
+      kpdCadres: normalizeCountMap(ussrDeals.kpdCadres, dealTrackBoxes, 9)
+    }
+  };
+}
+
+function trackPiecesEmpty(pieces) {
+  const normalized = normalizeTrackPieces(pieces);
+  return !Object.values(normalized).some(group => Object.values(group).some(countMapHasAny));
+}
+
+const trackPieceLabels = {
+  progressReaction: "Progress / Reaction",
+  economy: "Economy",
+  usDeals: "U.S. Deals",
+  ussrDeals: "U.S.S.R. Deals",
+  yellowLeverage: "Yellow Leverage",
+  blackLeverage: "Black Leverage",
+  reforms: "Reforms",
+  assassinations: "Assassinations",
+  nsdapCadres: "NSDAP Cadres",
+  conservativeCliques: "Conservative Cliques",
+  dollarDependence: "Dollar Dependence",
+  reichswehr: "Reichswehr",
+  kpdCadres: "KPD Cadres"
+};
+
+function trackPieceLabel(key) {
+  return trackPieceLabels[key] || key;
+}
+
+function scenarioTrackPieceDefaults(scenarioId) {
+  const data = scenarioTrackPieceData[scenarioId] || {};
+  const progress = data.progressReaction || {};
+  const economy = data.economy || {};
+  const usDeals = data.usDeals || {};
+  const ussrDeals = data.ussrDeals || {};
+  return {
+    progressReaction: {
+      yellowLeverage: countMapFromList(progressReactionBoxes, progress.yellowLeverage),
+      blackLeverage: countMapFromList(progressReactionBoxes, progress.blackLeverage),
+      reforms: countMapFromList(progressReactionBoxes, progress.reforms),
+      assassinations: countMapFromList(progressReactionBoxes, progress.assassinations),
+      nsdapCadres: countMapFromList(progressReactionBoxes, progress.nsdapCadres),
+      conservativeCliques: countMapFromList(progressReactionBoxes, progress.conservativeCliques)
+    },
+    economy: {
+      dollarDependence: countMapFromList(economyOptions.map(([id]) => id), economy.dollarDependence)
+    },
+    usDeals: {
+      yellowLeverage: countMapFromList(dealTrackBoxes, usDeals.yellowLeverage),
+      blackLeverage: countMapFromList(dealTrackBoxes, usDeals.blackLeverage),
+      dollarDependence: countMapFromList(dealTrackBoxes, usDeals.dollarDependence)
+    },
+    ussrDeals: {
+      yellowLeverage: countMapFromList(dealTrackBoxes, ussrDeals.yellowLeverage),
+      blackLeverage: countMapFromList(dealTrackBoxes, ussrDeals.blackLeverage),
+      reichswehr: countMapFromList(dealTrackBoxes, ussrDeals.reichswehr),
+      kpdCadres: countMapFromList(dealTrackBoxes, ussrDeals.kpdCadres)
+    }
+  };
+}
 
 function blankMiddleClassPawns() {
   return {
     mats: Object.fromEntries(factionIds.map(id => [id, 0])),
     tracks: {
-      progress: Object.fromEntries(mcsNumericBoxes.map(box => [box, 0])),
-      reaction: Object.fromEntries(mcsNumericBoxes.map(box => [box, 0])),
+      progressReaction: Object.fromEntries(mcsNumericBoxes.map(box => [box, 0])),
       economy: Object.fromEntries(economyOptions.map(([id]) => [id, 0]))
     }
   };
+}
+
+function scenarioMiddleClassPawnDefaults(scenarioId) {
+  const data = scenarioTrackPieceData[scenarioId] || {};
+  const pawns = blankMiddleClassPawns();
+  pawns.tracks.progressReaction = countMapFromList(mcsNumericBoxes, data.progressReaction?.middleClass);
+  pawns.tracks.economy = countMapFromList(economyOptions.map(([id]) => id), data.economy?.middleClass);
+  return pawns;
 }
 
 function normalizeMiddleClassPawns(existing = {}) {
   const source = existing && typeof existing === "object" && !Array.isArray(existing) ? existing : {};
   const mats = source.mats && typeof source.mats === "object" ? source.mats : {};
   const tracks = source.tracks && typeof source.tracks === "object" ? source.tracks : {};
+  const hasSharedProgressReaction = tracks.progressReaction && typeof tracks.progressReaction === "object";
+  const sharedProgressReaction = hasSharedProgressReaction
+    ? normalizeCountMap(tracks.progressReaction, mcsNumericBoxes, 20)
+    : Object.fromEntries(mcsNumericBoxes.map(box => [box, clampInt(tracks.progress?.[box], 0, 20) + clampInt(tracks.reaction?.[box], 0, 20)]));
   const normalized = {
     mats: Object.fromEntries(factionIds.map(id => [id, clampInt(mats[id], 0, 20)])),
     tracks: {
-      progress: Object.fromEntries(mcsNumericBoxes.map(box => [box, clampInt(tracks.progress?.[box], 0, 20)])),
-      reaction: Object.fromEntries(mcsNumericBoxes.map(box => [box, clampInt(tracks.reaction?.[box], 0, 20)])),
+      progressReaction: sharedProgressReaction,
       economy: Object.fromEntries(economyOptions.map(([id]) => [id, clampInt(tracks.economy?.[id], 0, 20)]))
     }
   };
   const legacyAvailable = clampInt(source.available, 0, 20);
-  if (legacyAvailable) normalized.tracks.progress["1"] += legacyAvailable;
+  if (legacyAvailable) normalized.tracks.progressReaction["1"] += legacyAvailable;
   return normalized;
+}
+
+function normalizeMcsLocation(location) {
+  const [type, id] = String(location || "").split(":");
+  if ((type === "progress" || type === "reaction") && Object.prototype.hasOwnProperty.call(Object.fromEntries(mcsNumericBoxes.map(box => [box, true])), id)) {
+    return `progressReaction:${id}`;
+  }
+  return String(location || "");
 }
 
 function mcsLocationOptions() {
   return [
     ...factionIds.map(id => [`mat:${id}`, `${factions[id].short} playmat`]),
-    ...mcsNumericBoxes.map(box => [`progress:${box}`, `Progress box ${box}`]),
-    ...mcsNumericBoxes.map(box => [`reaction:${box}`, `Reaction box ${box}`]),
+    ...mcsNumericBoxes.map(box => [`progressReaction:${box}`, `Progress/Reaction box ${box}`]),
     ...economyOptions.map(([id, label]) => [`economy:${id}`, `Economy ${label}`])
   ];
 }
@@ -709,7 +885,7 @@ function mcsTrackLocationOptions() {
 
 function defaultMcsTrackLocation() {
   const progressBox = String(Math.max(1, Math.min(6, Number(state.boardState?.progress || 1))));
-  return `progress:${progressBox}`;
+  return `progressReaction:${progressBox}`;
 }
 
 function firstOccupiedMcsTrackLocation() {
@@ -1548,6 +1724,10 @@ const state = {
   actionPlan: ["", ""],
   selectedActionId: "",
   actionContext: {},
+  newYearOrder: {
+    card: "",
+    order: []
+  },
   soloSetupComplete: false,
   boardReturnScreen: "sequence",
   boardNotice: "",
@@ -1562,6 +1742,7 @@ const state = {
     yellowEconomyLeverage: "none",
     blackEconomyLeverage: "none",
     economicLeverageBoxes: blankEconomicLeverageBoxes(),
+    trackPieces: blankTrackPieces(),
     usDeals: 1,
     ussrDeals: 1,
     kpdStance: "left_revolutionary",
@@ -1804,6 +1985,11 @@ function normalizeState() {
   state.actionPlan = [state.actionPlan[0] || "", state.actionPlan[1] || ""];
   if (typeof state.selectedActionId !== "string") state.selectedActionId = "";
   if (!state.actionContext || typeof state.actionContext !== "object") state.actionContext = {};
+  if (!state.newYearOrder || typeof state.newYearOrder !== "object") state.newYearOrder = {};
+  state.newYearOrder = {
+    card: normalizeBotCardKey(state.newYearOrder.card) || "",
+    order: normalizeNewYearOrder(state.newYearOrder.order)
+  };
   state.soloSetupComplete = !!state.soloSetupComplete;
   const knownScreens = ["solo_setup", "scenario_setup", "sequence", "turn_order", "faction_turn", "action_resolve", "board_state", "scenario_audit", "map_space", "factions", "rules", "notes", "save_load", "result"];
   if (!knownScreens.includes(state.screen) || state.screen === "dashboard") {
@@ -1825,6 +2011,7 @@ function normalizeState() {
     yellowEconomyLeverage: normalizeEconomyLeverage(state.boardState.yellowEconomyLeverage),
     blackEconomyLeverage: normalizeEconomyLeverage(state.boardState.blackEconomyLeverage),
     economicLeverageBoxes: normalizeEconomicLeverageBoxes(existingBoard.economicLeverageBoxes),
+    trackPieces: normalizeTrackPieces(existingBoard.trackPieces),
     usDeals: Number.isFinite(Number(state.boardState.usDeals)) ? Number(state.boardState.usDeals) : 1,
     ussrDeals: Number.isFinite(Number(state.boardState.ussrDeals)) ? Number(state.boardState.ussrDeals) : 1,
     kpdStance: state.boardState.kpdStance || "left_revolutionary",
@@ -1846,6 +2033,8 @@ function normalizeState() {
     if (state.boardState.yellowProgressLeverage === "unknown") state.boardState.yellowProgressLeverage = leverageDefaults.yellowProgressLeverage;
     if (state.boardState.blackReactionLeverage === "unknown") state.boardState.blackReactionLeverage = leverageDefaults.blackReactionLeverage;
     if (economicLeverageBoxesEmpty(existingBoard.economicLeverageBoxes)) state.boardState.economicLeverageBoxes = leverageDefaults.economicLeverageBoxes;
+    if (trackPiecesEmpty(existingBoard.trackPieces)) state.boardState.trackPieces = scenarioTrackPieceDefaults(scenarioForLeverage.id);
+    if (totalMiddleClassPawns(existingBoard.middleClassPawns) === 0) state.boardState.middleClassPawns = scenarioMiddleClassPawnDefaults(scenarioForLeverage.id);
   }
   if (!state.controllers || typeof state.controllers !== "object") state.controllers = {};
   state.controllers = {
@@ -2104,6 +2293,7 @@ function setActiveFaction(factionId) {
   state.actionPlan = ["", ""];
   state.selectedActionId = "";
   state.actionContext = {};
+  state.newYearOrder = { card: "", order: [] };
   state.botTurn = emptyBotTurn();
   render();
 }
@@ -2111,6 +2301,7 @@ function setActiveFaction(factionId) {
 function setMomentumFaction(factionId) {
   if (!factions[factionId]) return;
   state.momentumFaction = factionId;
+  state.newYearOrder = { card: "", order: normalizeNewYearOrder([]) };
   render();
 }
 
@@ -2131,6 +2322,68 @@ function setTurnOrderSlot(slot, factionId) {
   } else {
     state.activeFaction = state.turnOrder[state.activeTurnIndex] || state.activeFaction;
   }
+  render();
+}
+
+function normalizeNewYearOrder(order = state.newYearOrder?.order) {
+  const momentum = factions[state.momentumFaction] ? state.momentumFaction : "coalition";
+  const source = Array.isArray(order) ? order : [];
+  const clean = source.filter(id => factions[id] && id !== momentum);
+  for (const id of factionIds) {
+    if (id !== momentum && !clean.includes(id)) clean.push(id);
+  }
+  return clean.slice(0, factionIds.length - 1);
+}
+
+function ensureNewYearOrderDraft() {
+  if (!state.newYearOrder || typeof state.newYearOrder !== "object") state.newYearOrder = { card: "", order: [] };
+  state.newYearOrder.card = normalizeBotCardKey(state.newYearOrder.card) || "";
+  state.newYearOrder.order = normalizeNewYearOrder(state.newYearOrder.order);
+  const data = botCardDatabase[state.newYearOrder.card];
+  if (state.newYearOrder.card && data && data.faction !== state.momentumFaction) state.newYearOrder.card = "";
+  return state.newYearOrder;
+}
+
+function chooseNewYearBotCard(cardNumber) {
+  const key = normalizeBotCardKey(cardNumber);
+  const data = botCardDatabase[key];
+  if (!data || data.faction !== state.momentumFaction) return;
+  state.newYearOrder.card = key;
+  state.newYearOrder.order = normalizeNewYearOrder(state.newYearOrder.order);
+  render();
+}
+
+function drawNewYearBotCard() {
+  const keys = botCardRanges[state.momentumFaction] || [];
+  if (!keys.length) return;
+  const key = keys[Math.floor(Math.random() * keys.length)];
+  chooseNewYearBotCard(key);
+}
+
+function setNewYearOrderSlot(slot, factionId) {
+  if (!factions[factionId] || factionId === state.momentumFaction) return;
+  const index = Number(slot);
+  if (index < 0 || index >= factionIds.length - 1) return;
+  const order = normalizeNewYearOrder(state.newYearOrder?.order);
+  const existingIndex = order.indexOf(factionId);
+  if (existingIndex >= 0) {
+    const displaced = order[index];
+    order[existingIndex] = displaced;
+  }
+  order[index] = factionId;
+  state.newYearOrder.order = normalizeNewYearOrder(order);
+  render();
+}
+
+function applyNewYearTurnOrderFromCard() {
+  pushHistory();
+  const draft = ensureNewYearOrderDraft();
+  state.turnOrder = [...draft.order, state.momentumFaction];
+  state.activeTurnIndex = 0;
+  state.activeFaction = state.turnOrder[0] || "coalition";
+  resetCurrentFactionPrompts();
+  state.sequenceChecks["new_year:turn_order"] = true;
+  state.sequenceChecks["new_year:bot"] = true;
   render();
 }
 
@@ -2469,7 +2722,7 @@ function clearEconomyLeverageTrack(track) {
 
 function getMiddleClassLocationCount(location, pawns = state.boardState.middleClassPawns) {
   const normalized = normalizeMiddleClassPawns(pawns);
-  const [type, id] = String(location || "").split(":");
+  const [type, id] = normalizeMcsLocation(location).split(":");
   if (type === "mat" && factions[id]) return normalized.mats[id];
   if (mcsTrackTypes.includes(type) && Object.prototype.hasOwnProperty.call(normalized.tracks[type], id)) return normalized.tracks[type][id];
   return 0;
@@ -2478,7 +2731,7 @@ function getMiddleClassLocationCount(location, pawns = state.boardState.middleCl
 function writeMiddleClassLocationCount(pawns, location, value) {
   const next = normalizeMiddleClassPawns(pawns);
   const count = clampInt(value, 0, 20);
-  const [type, id] = String(location || "").split(":");
+  const [type, id] = normalizeMcsLocation(location).split(":");
   if (type === "mat" && factions[id]) next.mats[id] = count;
   if (mcsTrackTypes.includes(type) && Object.prototype.hasOwnProperty.call(next.tracks[type], id)) next.tracks[type][id] = count;
   return next;
@@ -2487,6 +2740,8 @@ function writeMiddleClassLocationCount(pawns, location, value) {
 function moveMiddleClassPawns(source, destination, amount = 1) {
   const parsed = clampInt(amount, 0, 20);
   if (!parsed) return "";
+  source = normalizeMcsLocation(source);
+  destination = normalizeMcsLocation(destination);
   if (!mcsLocationOptions().some(([id]) => id === source) || !mcsLocationOptions().some(([id]) => id === destination)) return "";
   if (source === destination) return `MCS already at ${mcsLocationLabel(destination)}`;
   const sourceCount = getMiddleClassLocationCount(source);
@@ -2500,6 +2755,14 @@ function moveMiddleClassPawns(source, destination, amount = 1) {
 
 function setMiddleClassLocation(location, value) {
   state.boardState.middleClassPawns = writeMiddleClassLocationCount(state.boardState.middleClassPawns, location, value);
+  render();
+}
+
+function setTrackPiece(track, piece, box, value) {
+  const pieces = normalizeTrackPieces(state.boardState.trackPieces);
+  if (!pieces[track] || !pieces[track][piece] || !Object.prototype.hasOwnProperty.call(pieces[track][piece], box)) return;
+  pieces[track][piece][box] = clampInt(value, 0, 9);
+  state.boardState.trackPieces = pieces;
   render();
 }
 
@@ -2720,6 +2983,7 @@ function applyScenario(scenarioId) {
   state.actionContext = {};
   state.botTurn = emptyBotTurn();
   const leverageDefaults = scenarioLeverageDefaults(scenario.id, scenario.start);
+  const trackPieceDefaults = scenarioTrackPieceDefaults(scenario.id);
   state.boardState = {
     ...state.boardState,
     progress: scenario.start.progress,
@@ -2732,12 +2996,13 @@ function applyScenario(scenarioId) {
     yellowEconomyLeverage: "none",
     blackEconomyLeverage: "none",
     economicLeverageBoxes: leverageDefaults.economicLeverageBoxes,
+    trackPieces: trackPieceDefaults,
     usDeals: scenario.start.usDeals,
     ussrDeals: scenario.start.ussrDeals,
     kpdStance: scenario.start.kpdStance,
     nsdapStance: scenario.start.nsdapStance,
     reactionLimitIgnored: scenario.start.reactionLimitIgnored,
-    middleClassPawns: blankMiddleClassPawns(),
+    middleClassPawns: scenarioMiddleClassPawnDefaults(scenario.id),
     selectedSpace: scenario.id === "black_sun_1928" ? "koeln" : "berlin",
     spaces: defaultSpacesForScenario(scenario.id),
     scenarioSetup: scenarioSetupText(scenario),
@@ -2837,13 +3102,18 @@ function chooseActionForSlot(slot, actionId) {
   pushHistory();
   state.actionPlan[index] = actionId;
   state.selectedActionId = actionId || state.selectedActionId;
-  if (index === 0 && requiredActionSlots().length > 1) {
-    state.actionSubpage = "action2";
-  } else if (state.sequenceAnswers.actionChoice === "actions_then_event") {
-    state.actionSubpage = "event";
-  } else {
-    state.actionSubpage = "election";
-  }
+  const context = currentChoiceContext();
+  delete state.effectDrafts[context.key];
+  delete state.choiceDrafts[context.key];
+  render();
+}
+
+function clearActionSlot(slot) {
+  const index = Number(slot);
+  if (![0, 1].includes(index)) return;
+  pushHistory();
+  state.actionPlan[index] = "";
+  state.selectedActionId = defaultActionId();
   render();
 }
 
@@ -3110,6 +3380,7 @@ function continueSequence() {
       }
       state.year += 1;
       state.round = 1;
+      state.newYearOrder = { card: "", order: [] };
       setSequencePhase("new_year");
       state.sequenceAnswers.timelineFlip = "";
       state.screen = "sequence";
@@ -3268,6 +3539,7 @@ function resetApp() {
   state.actionPlan = ["", ""];
   state.selectedActionId = "";
   state.actionContext = {};
+  state.newYearOrder = { card: "", order: [] };
   state.soloSetupComplete = false;
   state.boardReturnScreen = "sequence";
   state.boardNotice = "";
@@ -3282,6 +3554,7 @@ function resetApp() {
     yellowEconomyLeverage: "none",
     blackEconomyLeverage: "none",
     economicLeverageBoxes: blankEconomicLeverageBoxes(),
+    trackPieces: blankTrackPieces(),
     usDeals: 1,
     ussrDeals: 1,
     kpdStance: "left_revolutionary",
@@ -3605,6 +3878,61 @@ function numberInputHtml(value, onchange, min = 0, max = 99) {
   return `<input class="text-input compact-input number-input" type="number" min="${min}" max="${max}" value="${esc(value)}" onchange="${onchange}">`;
 }
 
+function placementGuidanceForAction(actionId) {
+  const commonInfluence = [
+    "Check the target space Population before placing Influence.",
+    "Do not place and remove Influence in the same space during the same Action Step.",
+    "Assassinations markers can block Influence placement by marker side."
+  ];
+  if (actionId === "place_influence") {
+    const byFaction = {
+      coalition: "Coalition placement starts from Berlin, adjacent to Berlin, or Coalition Presence/adjacency.",
+      kpd: "KPD placement starts from Berlin/adjacency, KPD Presence/adjacency, or a KPD Cadre.",
+      nsdap: "NSDAP placement starts from Muenchen/Bayern, NSDAP Presence/adjacency, an NSDAP Cadre, or RC Dominance.",
+      radical_conservatives: "RC placement starts from Berlin/adjacency or Conservative Clique range using RC Middle Class Sympathies, minimum range 1."
+    };
+    return [byFaction[state.activeFaction] || "Check the active faction placement source.", ...commonInfluence];
+  }
+  if (actionId === "remove_influence") {
+    return ["Do not remove a faction that has Supremacy in the target space.", "Respect same-turn place/remove limits.", "Use the map-space view to confirm current Presence, Supremacy, Population, and Political Value."];
+  }
+  if (actionId === "move_mcs") {
+    return ["Progress/Reaction Middle Class Sympathies are shared by both sides.", "Moving or removing one from the shared row makes it unavailable to the other side.", "Pawns may live on faction mats, the shared Progress/Reaction track, or the Economy track."];
+  }
+  if (actionId === "place_reform") {
+    return ["Target needs Coalition Parliamentary Control.", "Do not place where Strike, Uprising, black Leverage, Assassinations, or Reform is already present.", "Coalition Unity must be Sound or Strong."];
+  }
+  if (actionId === "place_cadre") {
+    return ["Cadres need matching faction Dominance or Parliamentary Control.", "A space cannot already contain any Cadre.", "KPD and NSDAP Cadres are separate marker types."];
+  }
+  if (actionId === "place_clique") {
+    return ["Conservative Cliques need RC Dominance.", "Do not place into a brown/black Assassinations space.", "Conservative Clique markers are not Rogue Freikorps units."];
+  }
+  if (actionId === "place_unit" || actionId === "move_units") {
+    return ["Check whether the action places, moves, or removes actual units, not cadres or cliques.", "Coalition Reichswehr SV 3; Freikorps SV 2; KPD Militia and NSDAP SA SV 1.", "Movement is usually adjacent, with Strike/Uprising and General Strike restrictions."];
+  }
+  if (actionId === "place_leverage_map") {
+    return ["Map Leverage requires matching faction Presence in the target space.", "Coalition yellow Leverage clears Strike and/or KPD Cadre there.", "RC black Leverage clears Assassinations or NSDAP Cadre there."];
+  }
+  if (actionId === "place_leverage_track" || actionId === "coalition_economic_leverage" || actionId === "rc_economic_leverage") {
+    return ["Track Leverage is placed on the Progress, Reaction, U.S. Deals, U.S.S.R. Deals, or Economy track as allowed by the action.", "Economic Leverage can affect which Economy side is blocked or cleared.", "Use the Scenario track pieces section to reconcile exact setup boxes."];
+  }
+  if (actionId === "place_assassinations") {
+    return ["Target must have a vulnerable enemy Presence allowed by the action.", "Do not place where an Assassinations marker is already present.", "The marker side determines which factions are blocked later."];
+  }
+  if (actionId === "place_strike") {
+    return ["Target needs KPD Dominance and/or KPD Parliamentary Control.", "Do not place into a space that already has Strike or Uprising.", "Three total Strikes plus Uprisings can trigger General Strike cleanup."];
+  }
+  return globalActionLimits.slice(0, 3);
+}
+
+function placementGuidanceHtml() {
+  const actionId = currentResolutionActionId();
+  const items = placementGuidanceForAction(actionId);
+  if (!items.length) return "";
+  return `<div class="info-band"><strong>Placement reminders:</strong>${listHtml(items)}</div>`;
+}
+
 function choiceTrackerHtml() {
   const context = currentChoiceContext();
   const draft = currentEffectDraft();
@@ -3626,6 +3954,7 @@ function choiceTrackerHtml() {
     <div class="segmented mode-tabs">
       ${effectModes.map(([id, label]) => `<button class="${draft.mode === id ? "selected" : ""}" onclick="updateEffectDraft('mode', '${id}')">${esc(label)}</button>`).join("")}
     </div>
+    ${placementGuidanceHtml()}
     ${effectFieldsHtml(draft)}
     ${effectLegalityHintHtml(draft)}
     ${notice}
@@ -4124,10 +4453,20 @@ function markerAuditLabel(marker) {
   return markerOptions.find(([id]) => id === marker)?.[1] || marker;
 }
 
+function pushCountMapDrift(items, label, current, expected) {
+  const currentLabel = countMapLabel(current);
+  const expectedLabel = countMapLabel(expected);
+  if (currentLabel !== expectedLabel) items.push(`${label}: current ${currentLabel}, setup ${expectedLabel}`);
+}
+
 function scenarioTrackAuditItems(scenario) {
   if (!scenario) return [];
   const board = state.boardState;
   const leverageDefaults = scenarioLeverageDefaults(scenario.id, scenario.start);
+  const trackDefaults = scenarioTrackPieceDefaults(scenario.id);
+  const currentPieces = normalizeTrackPieces(board.trackPieces);
+  const expectedPawns = scenarioMiddleClassPawnDefaults(scenario.id);
+  const currentPawns = normalizeMiddleClassPawns(board.middleClassPawns);
   const fields = [
     ["year", "Year", state.year, scenario.start.year],
     ["round", "Half-year", state.round, scenario.start.round],
@@ -4150,7 +4489,23 @@ function scenarioTrackAuditItems(scenario) {
   ];
   return fields
     .filter(([, , current, expected]) => current !== expected)
-    .map(([, label, current, expected]) => `${label}: current ${displayAuditValue(current)}, setup ${displayAuditValue(expected)}`);
+    .map(([, label, current, expected]) => `${label}: current ${displayAuditValue(current)}, setup ${displayAuditValue(expected)}`)
+    .concat((() => {
+      const items = [];
+      pushCountMapDrift(items, "Shared Progress/Reaction MCS", currentPawns.tracks.progressReaction, expectedPawns.tracks.progressReaction);
+      pushCountMapDrift(items, "Economy MCS", currentPawns.tracks.economy, expectedPawns.tracks.economy);
+      pushCountMapDrift(items, "Progress/Reaction yellow Leverage boxes", currentPieces.progressReaction.yellowLeverage, trackDefaults.progressReaction.yellowLeverage);
+      pushCountMapDrift(items, "Progress/Reaction black Leverage boxes", currentPieces.progressReaction.blackLeverage, trackDefaults.progressReaction.blackLeverage);
+      pushCountMapDrift(items, "Progress/Reaction Reforms", currentPieces.progressReaction.reforms, trackDefaults.progressReaction.reforms);
+      pushCountMapDrift(items, "Progress/Reaction Assassinations", currentPieces.progressReaction.assassinations, trackDefaults.progressReaction.assassinations);
+      pushCountMapDrift(items, "Progress/Reaction NSDAP Cadres", currentPieces.progressReaction.nsdapCadres, trackDefaults.progressReaction.nsdapCadres);
+      pushCountMapDrift(items, "Progress/Reaction Conservative Cliques", currentPieces.progressReaction.conservativeCliques, trackDefaults.progressReaction.conservativeCliques);
+      pushCountMapDrift(items, "Economy Dollar Dependence", currentPieces.economy.dollarDependence, trackDefaults.economy.dollarDependence);
+      pushCountMapDrift(items, "U.S. Deals Dollar Dependence", currentPieces.usDeals.dollarDependence, trackDefaults.usDeals.dollarDependence);
+      pushCountMapDrift(items, "U.S.S.R. Deals Reichswehr", currentPieces.ussrDeals.reichswehr, trackDefaults.ussrDeals.reichswehr);
+      pushCountMapDrift(items, "U.S.S.R. Deals KPD Cadres", currentPieces.ussrDeals.kpdCadres, trackDefaults.ussrDeals.kpdCadres);
+      return items;
+    })());
 }
 
 function spaceScenarioDiffs(spaceId, baselineSpaces) {
@@ -4629,10 +4984,9 @@ function middleClassPawnsHtml() {
       <div class="mcs-grid">
         ${factionIds.map(id => input(`mat:${id}`, pawns.mats[id], `${factions[id].short} mat`)).join("")}
       </div>
-      <div class="mcs-subhead">Progress track</div>
-      <div class="mcs-grid">${mcsNumericBoxes.map(box => input(`progress:${box}`, pawns.tracks.progress[box], box)).join("")}</div>
-      <div class="mcs-subhead">Reaction track</div>
-      <div class="mcs-grid">${mcsNumericBoxes.map(box => input(`reaction:${box}`, pawns.tracks.reaction[box], box)).join("")}</div>
+      <div class="mcs-subhead">Shared Progress / Reaction track</div>
+      <div class="small-note">These pawns are a shared physical pool. If one side removes a pawn from this row, it is no longer available to the other side.</div>
+      <div class="mcs-grid">${mcsNumericBoxes.map(box => input(`progressReaction:${box}`, pawns.tracks.progressReaction[box], box)).join("")}</div>
       <div class="mcs-subhead">Economy track</div>
       <div class="mcs-grid">${economyOptions.map(([id, label]) => input(`economy:${id}`, pawns.tracks.economy[id], label)).join("")}</div>
     </details>
@@ -4649,6 +5003,47 @@ function economicLeverageBoxesHtml() {
       <span>U.S.S.R. Deals yellow: ${esc(boxListLabel(boxes.ussrDeals.yellow))}</span>
       <span>U.S.S.R. Deals black: ${esc(boxListLabel(boxes.ussrDeals.black))}</span>
     </div>
+  </div>`;
+}
+
+function trackPieceRowsHtml(track, group, boxes) {
+  const pieces = normalizeTrackPieces(state.boardState.trackPieces);
+  const boxLabel = box => track === "economy" ? (economyOptions.find(([id]) => id === box)?.[1] || box) : box;
+  return Object.entries(pieces[track] || {}).map(([piece, counts]) => `<div class="mcs-subhead">${esc(trackPieceLabel(piece))}</div>
+    <div class="mcs-grid">${boxes.map(box => `<label><span>${esc(boxLabel(box))}</span>${numberInputHtml(counts[box], `setTrackPiece('${track}', '${piece}', '${box}', this.value)`, 0, 9)}</label>`).join("")}</div>`).join("");
+}
+
+function trackPiecesHtml() {
+  const pieces = normalizeTrackPieces(state.boardState.trackPieces);
+  const pr = pieces.progressReaction;
+  const economy = pieces.economy;
+  const us = pieces.usDeals;
+  const ussr = pieces.ussrDeals;
+  return `<div class="context-item wide mcs-editor">
+    <div class="context-label">Scenario track pieces</div>
+    <div class="mcs-quick-row">
+      <span>Progress/Reaction L: ${esc(countMapLabel(pr.yellowLeverage))} / ${esc(countMapLabel(pr.blackLeverage))}</span>
+      <span>Reforms: ${esc(countMapLabel(pr.reforms))}</span>
+      <span>Assassinations: ${esc(countMapLabel(pr.assassinations))}</span>
+      <span>NSDAP Cadres: ${esc(countMapLabel(pr.nsdapCadres))}</span>
+      <span>Conservative Cliques: ${esc(countMapLabel(pr.conservativeCliques))}</span>
+      <span>Economy Dollar: ${esc(countMapLabel(economy.dollarDependence))}</span>
+      <span>U.S. Deals Dollar: ${esc(countMapLabel(us.dollarDependence))}</span>
+      <span>U.S.S.R. Reichswehr: ${esc(countMapLabel(ussr.reichswehr))}</span>
+      <span>U.S.S.R. KPD Cadres: ${esc(countMapLabel(ussr.kpdCadres))}</span>
+    </div>
+    <details class="mcs-details">
+      <summary>Edit track pieces</summary>
+      <div class="small-note">Middle Class pawns are edited in their own shared-pool section below. Economic leverage is summarized above and mirrored here by exact box.</div>
+      <div class="mcs-subhead">Progress / Reaction</div>
+      ${trackPieceRowsHtml("progressReaction", pr, progressReactionBoxes)}
+      <div class="mcs-subhead">Economy</div>
+      ${trackPieceRowsHtml("economy", economy, economyOptions.map(([id]) => id))}
+      <div class="mcs-subhead">U.S. Deals</div>
+      ${trackPieceRowsHtml("usDeals", us, dealTrackBoxes)}
+      <div class="mcs-subhead">U.S.S.R. Deals</div>
+      ${trackPieceRowsHtml("ussrDeals", ussr, dealTrackBoxes)}
+    </details>
   </div>`;
 }
 
@@ -4742,6 +5137,7 @@ function boardStateControlsHtml() {
       <select class="select-input" onchange="setBoardState('blackEconomyLeverage', this.value)">${selectOptionsHtml(economyLeverageOptions, board.blackEconomyLeverage)}</select>
     </div>
     ${economicLeverageBoxesHtml()}
+    ${trackPiecesHtml()}
     ${middleClassPawnsHtml()}
     <div class="context-item wide">
       <div class="context-label">Board notes</div>
@@ -4813,6 +5209,8 @@ function selectedActionDetailHtml() {
   const blockedText = status.blocked.map(key => actionStateQuestions[key]);
   const unknownText = status.unknown.map(key => actionStateQuestions[key]);
   const slotTargets = state.actionSubpage === "action1" ? [0] : state.actionSubpage === "action2" ? [1] : requiredActionSlots();
+  const assignedSlot = slotTargets.length === 1 ? slotTargets[0] : -1;
+  const isAssigned = assignedSlot >= 0 && state.actionPlan[assignedSlot] === action.id;
   return `<article class="action-detail ${status.tone}">
     <div class="row">
       <div>
@@ -4839,7 +5237,9 @@ function selectedActionDetailHtml() {
       </div>` : ""}
     </div>
     <div class="slot-actions">
-      ${slotTargets.map(index => `<button class="mini-btn" ${status.tone === "blocked" ? "disabled" : `onclick="chooseActionForSlot(${index}, '${action.id}')"`}>Use as Action ${index + 1}</button>`).join("")}
+      ${isAssigned
+        ? `<span class="small-note">Action ${assignedSlot + 1} selected. Apply board effects below, then continue.</span><button class="mini-btn" onclick="clearActionSlot(${assignedSlot})">Change action</button>`
+        : slotTargets.map(index => `<button class="mini-btn" ${status.tone === "blocked" ? "disabled" : `onclick="chooseActionForSlot(${index}, '${action.id}')"`}>Use as Action ${index + 1}</button>`).join("")}
     </div>
   </article>`;
 }
@@ -5157,24 +5557,7 @@ function renderFactionTurn(app) {
 }
 
 function humanActionBoardHtml() {
-  if (state.actionSubpage === "event" || state.actionSubpage === "election" || state.actionSubpage === "done") {
-    return humanActionSubpageHtml();
-  }
-  const action = selectedActionForFocus();
-  return `
-    ${pageHeaderHtml("Action / Board", `${activeFaction().short}: choose and update`, "Pick the action, then adjust remembered board state as needed.")}
-    ${actionPlanSummaryHtml()}
-    <div class="walk-block">
-      <div class="field-label">Available actions</div>
-      ${compactActionPickerHtml()}
-    </div>
-    ${selectedActionDetailHtml()}
-    ${actionRelevantBoardFactsHtml(action)}
-    ${choiceTrackerHtml()}
-    <div class="sequence-actions board-shortcut">
-      ${btn("Open full board", "editBoardStateFlow()")}
-    </div>
-  `;
+  return humanActionSubpageHtml();
 }
 
 function renderActionResolve(app) {
@@ -5786,12 +6169,7 @@ function actionFactControlHtml(key) {
 
 function actionRelevantBoardFactsHtml(action) {
   const keys = Array.from(new Set(action?.context || []));
-  if (!keys.length) {
-    return `<section class="fact-panel">
-      <div class="field-label">Board facts</div>
-      ${boardSummaryLineHtml()}
-    </section>`;
-  }
+  if (!keys.length) return "";
   return `<section class="fact-panel">
     <div class="field-label">Relevant board facts</div>
     <div class="context-grid focused-context-grid">
@@ -5802,15 +6180,32 @@ function actionRelevantBoardFactsHtml(action) {
 
 function humanActionSelectionPageHtml(slot) {
   const actionNumber = slot + 1;
+  const assignedActionId = state.actionPlan[slot] || "";
+  const action = assignedActionId ? findAction(assignedActionId) : selectedActionForFocus();
+  if (!assignedActionId) {
+    return `
+      ${pageHeaderHtml(`Action ${actionNumber}`, `Choose ${activeFaction().short} Action ${actionNumber}`, "Pick exactly one legal action for this slot. Board updates appear after the action is chosen.")}
+      ${boardSummaryLineHtml()}
+      <div class="walk-block mobile-action-picker always-show">
+        <div class="field-label">Available actions</div>
+        ${compactActionPickerHtml()}
+      </div>
+      ${selectedActionDetailHtml()}
+      <details class="compact-details">
+        <summary>Global Action limits</summary>
+        ${listHtml(globalActionLimits)}
+      </details>
+    `;
+  }
   return `
-    ${pageHeaderHtml(`Action ${actionNumber}`, `Choose ${activeFaction().short} Action ${actionNumber}`, "Tap an available candidate, then confirm it for this action slot.")}
+    ${pageHeaderHtml(`Action ${actionNumber}`, `Resolve ${activeFaction().short} Action ${actionNumber}`, "Apply only the board-state changes for the selected action, then continue.")}
     ${boardSummaryLineHtml()}
-    <div class="walk-block mobile-action-picker always-show">
-      <div class="field-label">Available actions</div>
-      ${compactActionPickerHtml()}
-    </div>
     ${selectedActionDetailHtml()}
+    ${actionRelevantBoardFactsHtml(action)}
     ${choiceTrackerHtml()}
+    <div class="sequence-actions board-shortcut">
+      ${btn("Open full board", "editBoardStateFlow()")}
+    </div>
     <details class="compact-details">
       <summary>Global Action limits</summary>
       ${listHtml(globalActionLimits)}
@@ -5863,20 +6258,25 @@ function botCardCuesHtml() {
 function botActionResolutionPageHtml(slot) {
   const actionNumber = slot + 1;
   const priorities = botActionPriorityLabels();
+  const selected = currentBotAction();
+  const waitingForSpecialDie = selected === "special" && !currentBotSpecialDie();
   return `
-    ${pageHeaderHtml(`Bot Action ${actionNumber}`, `${activeFaction().short}: choose legal bot Action`, "Use the first priority that has legal effect. For Action 2, continue from the next priority.")}
+    ${pageHeaderHtml(`Bot Action ${actionNumber}`, `${activeFaction().short}: resolve selected bot Action`, selected === "special" ? "Choose the Special Action die result, then apply the matching board effect." : "The first legal priority is selected; apply its board effect, then continue.")}
     ${botStepStatusHtml()}
     ${boardSummaryLineHtml()}
     <div class="walk-block">
       <div class="field-label">Bot Action priority</div>
       <div class="priority-row">${priorities.map((item, index) => `<span class="${currentBotAction() === botPriorityActionId(item) ? "selected" : ""}"><strong>${index + 1}</strong> ${esc(item)}</span>`).join("")}</div>
     </div>
-    <div class="walk-block">
-      <div class="field-label">Available bot actions</div>
-      ${botActionPickerHtml()}
-      ${botSelectedActionDetailHtml()}
-    </div>
-    ${choiceTrackerHtml()}
+    ${botSelectedActionDetailHtml()}
+    ${waitingForSpecialDie ? "" : choiceTrackerHtml()}
+    <details class="compact-details">
+      <summary>Change selected bot action</summary>
+      <div class="walk-block">
+        <div class="field-label">Available bot actions</div>
+        ${botActionPickerHtml()}
+      </div>
+    </details>
     <details class="compact-details">
       <summary>Bot targeting and option priorities</summary>
       <div class="walk-block">
@@ -6056,6 +6456,51 @@ function newYearEconomyReminder() {
   return "No automatic economy shift is listed on the Turn Aid for this year.";
 }
 
+function newYearTurnOrderHelperHtml() {
+  const draft = ensureNewYearOrderDraft();
+  const momentum = factions[state.momentumFaction] || factions.coalition;
+  const keys = botCardRanges[state.momentumFaction] || [];
+  const data = botCardDatabase[draft.card];
+  const orderOptions = selected => factionIds
+    .filter(id => id !== state.momentumFaction)
+    .map(id => `<option value="${id}" ${selected === id ? "selected" : ""}>${esc(factions[id].short)}</option>`)
+    .join("");
+  const appliedOrder = [...draft.order, state.momentumFaction].map(id => factions[id]?.short || id).join(" > ");
+  return `<div class="walk-block">
+    <div class="field-label">Turn order helper</div>
+    <div class="info-band">At New Year, use a bot card from the Momentum faction deck. Read the three faction icons at the top from left to right, then put ${esc(momentum.short)} last for the solo bot procedure.</div>
+    <div class="mcs-quick-row">
+      <span>Momentum: ${esc(momentum.short)}</span>
+      <span>Applied preview: ${esc(appliedOrder)}</span>
+    </div>
+    <div class="grid2">
+      <button class="btn secondary" onclick="drawNewYearBotCard()">Draw random Momentum card</button>
+      <button class="btn primary" onclick="applyNewYearTurnOrderFromCard()">Apply card order</button>
+    </div>
+    <div class="bot-card-grid">
+      ${keys.map(key => {
+        const card = botCardDatabase[key];
+        return `<button class="${draft.card === key ? "selected" : ""}" onclick="chooseNewYearBotCard('${key}')">
+          <strong>${Number(key)}</strong>
+          <span>${esc(card.impulse)}</span>
+        </button>`;
+      }).join("")}
+    </div>
+    ${data ? `<div class="bot-card-preview">
+      <img src="${esc(data.image)}" alt="Momentum bot card ${esc(draft.card)}">
+      <div>
+        <div class="info-band"><strong>Card ${esc(draft.card)}:</strong> ${esc(data.impulse)} | ${esc(botCardSummaryLabel(data.summary))}${data.reshuffle ? " | Reshuffle" : ""}</div>
+        <div class="choice-grid">
+          ${draft.order.map((id, index) => `<div>
+            <div class="context-label">Top icon ${index + 1}</div>
+            <select class="select-input" onchange="setNewYearOrderSlot(${index}, this.value)">${orderOptions(id)}</select>
+          </div>`).join("")}
+        </div>
+      </div>
+    </div>` : `<div class="small-note">Choose or draw a Momentum bot card, then set the top-strip icons left to right before applying turn order.</div>`}
+  </div>`;
+}
+
 function newYearControlsHtml() {
   const nextStep = state.year === 1924 || state.year === 1930 ? "New Era Step" : "Action Step";
   return `
@@ -6070,6 +6515,7 @@ function newYearControlsHtml() {
         ${checkItemHtml("new_year:bot", "Bot / NP faction order checked if playing solo")}
       </div>
     </div>
+    ${newYearTurnOrderHelperHtml()}
     <p class="small-note">Next branch after this step: ${esc(nextStep)}.</p>
   `;
 }
@@ -6463,6 +6909,10 @@ window.setFaction = setFaction;
 window.setActiveFaction = setActiveFaction;
 window.setMomentumFaction = setMomentumFaction;
 window.setTurnOrderSlot = setTurnOrderSlot;
+window.chooseNewYearBotCard = chooseNewYearBotCard;
+window.drawNewYearBotCard = drawNewYearBotCard;
+window.setNewYearOrderSlot = setNewYearOrderSlot;
+window.applyNewYearTurnOrderFromCard = applyNewYearTurnOrderFromCard;
 window.setActiveTurnIndex = setActiveTurnIndex;
 window.setSource = setSource;
 window.setYear = setYear;
@@ -6487,6 +6937,7 @@ window.setSpaceMarker = setSpaceMarker;
 window.setSpaceNotes = setSpaceNotes;
 window.setSpaceGuideTokens = setSpaceGuideTokens;
 window.setMiddleClassLocation = setMiddleClassLocation;
+window.setTrackPiece = setTrackPiece;
 window.toggleSequenceCheck = toggleSequenceCheck;
 window.continueSequence = continueSequence;
 window.jumpToSequencePhase = jumpToSequencePhase;
@@ -6494,6 +6945,7 @@ window.setActionContext = setActionContext;
 window.selectAction = selectAction;
 window.setActionSlot = setActionSlot;
 window.chooseActionForSlot = chooseActionForSlot;
+window.clearActionSlot = clearActionSlot;
 window.setController = setController;
 window.completeSoloSetup = completeSoloSetup;
 window.editSoloSetup = editSoloSetup;
